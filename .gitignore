@@ -1,0 +1,36 @@
+﻿# Environment & API Keys
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Tests & Coverage
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+
+# Lint & Format
+.ruff_cache/
+
+# Data & Storage
+data/
+*.db
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Docker
+docker-compose.override.yml
+
+# OS
+.DS_Store
+Thumbs.db

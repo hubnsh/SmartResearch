@@ -1,0 +1,47 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-dotenv==1.0.1
+pydantic==2.10.4
+pydantic-settings==2.7.1
+
+# LangChain 生态
+langchain==0.3.14
+langchain-openai==0.3.0
+langchain-community==0.3.14
+langchain-chroma==0.2.2
+langchain-text-splitters==0.3.5
+langgraph==0.2.61
+
+# 数据库
+neo4j==5.27.0
+chromadb==0.5.23
+redis==5.2.1
+
+# 文档解析
+pymupdf==1.25.1
+python-docx==1.1.2
+python-pptx==1.0.2
+markdown==3.7
+
+# 图像处理
+Pillow==11.1.0
+pytesseract==0.3.13
+
+# 网页爬取
+beautifulsoup4==4.12.3
+httpx==0.28.1
+
+# 任务队列
+celery==5.4.0
+
+# 工具
+aiofiles==24.1.0
+python-multipart==0.0.19
+
+# 视频处理
+yt-dlp>=2024.0
+youtube-transcript-api>=0.6.0
+
+# 测试
+pytest==8.3.4
+pytest-asyncio==0.25.0
