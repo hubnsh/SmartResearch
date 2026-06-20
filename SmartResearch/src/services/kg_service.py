@@ -16,9 +16,15 @@ class KGService:
                 settings.NEO4J_URI,
                 auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD),
             )
+            self.driver.verify_connectivity()
             logger.info("✅ Neo4j 驱动初始化成功")
         except Exception as e:
-            logger.warning(f"⚠️ Neo4j 驱动初始化失败: {e}")
+            logger.warning(f"⚠️ Neo4j 不可用，图谱功能已禁用: {e}")
+            if self.driver:
+                try:
+                    self.driver.close()
+                except Exception:
+                    pass
             self.driver = None
 
     def close(self):
@@ -29,14 +35,15 @@ class KGService:
     def upsert_knowledge(self, extraction_result: Dict[str, Any], source_info: Dict[str, str] = None):
         """将提取结果写入图谱"""
         if not self.driver:
-            logger.warning("Neo4j 不可用，跳过写入")
             return
-
-        with self.driver.session() as session:
-            for entity in extraction_result.get("entities", []):
-                session.execute_write(self._upsert_entity, entity, source_info)
-            for relation in extraction_result.get("relations", []):
-                session.execute_write(self._upsert_relation, relation)
+        try:
+            with self.driver.session() as session:
+                for entity in extraction_result.get("entities", []):
+                    session.execute_write(self._upsert_entity, entity, source_info)
+                for relation in extraction_result.get("relations", []):
+                    session.execute_write(self._upsert_relation, relation)
+        except Exception as e:
+            logger.warning(f"Neo4j 写入失败 (非致命): {e}")
 
     @staticmethod
     def _upsert_entity(tx, entity: Dict[str, Any], source_info: Dict[str, str] = None):
