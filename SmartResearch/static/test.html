@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head><meta charset="UTF-8"><title>Test</title></head>
+<body>
+<script src="/static/marked.js"></script>
+<h2>Test Page</h2>
+<input id="q" type="text" placeholder="Type and press Enter">
+<button onclick="test()">Send</button>
+<div id="out"></div>
+<script>
+function test() {
+    var q = document.getElementById("q").value;
+    document.getElementById("out").innerText = "Sending: " + q;
+    fetch("/api/chat", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({query: q})
+    }).then(r => r.json()).then(d => {
+        document.getElementById("out").innerHTML = marked.parse(d.answer || "No answer");
+    }).catch(e => {
+        document.getElementById("out").innerText = "Error: " + e.message;
+    });
+}
+</script>
+</body>
+</html>

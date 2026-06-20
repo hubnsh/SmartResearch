@@ -69,9 +69,13 @@ class KGService:
     def query(self, cypher: str, params: Dict[str, Any] = None) -> List[Dict[str, Any]]:
         if not self.driver:
             return []
-        with self.driver.session() as session:
-            result = session.run(cypher, params or {})
-            return [record.data() for record in result]
+        try:
+            with self.driver.session() as session:
+                result = session.run(cypher, params or {})
+                return [record.data() for record in result]
+        except Exception as e:
+            logger.warning(f"Neo4j query failed: {e}")
+            return []
 
     def search_related(self, entity_name: str, limit: int = 10) -> List[Dict[str, Any]]:
         return self.query(

@@ -1,0 +1,77 @@
+﻿<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartResearch</title>
+<style>
+:root{--bg:#0a0e17;--surface:#111827;--border:#1e2d3d;--text:#e2e8f0;--text2:#94a3b8;--accent:#3b82f6;--green:#10b981}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);max-width:860px;margin:0 auto;padding:24px;min-height:100vh}
+.header{display:flex;align-items:center;gap:12px;margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid var(--border)}
+.header .icon{font-size:28px}
+.header h1{font-size:20px;color:var(--accent);letter-spacing:-0.5px}
+.header span{font-size:12px;color:var(--text2)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin:16px 0}
+.card h2{font-size:15px;color:var(--accent);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+input,textarea{width:100%;padding:12px 16px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;outline:none;transition:border .2s}
+input:focus{border-color:var(--accent)}
+button{width:100%;padding:12px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;transition:all .2s}
+button:hover{background:#2563eb}
+.result{background:var(--bg);border-radius:8px;padding:20px;margin:16px 0;line-height:1.7;white-space:pre-wrap;border:1px solid var(--border);font-size:14px}
+.result h2,.result h3{color:var(--accent);margin:10px 0}
+.result code{background:var(--surface);padding:2px 6px;border-radius:4px;color:#f59e0b;font-size:13px}
+.result pre{background:var(--surface);padding:14px;border-radius:8px;overflow-x:auto;margin:8px 0}
+.result table{width:100%;border-collapse:collapse;margin:8px 0}
+.result th,.result td{border:1px solid var(--border);padding:6px 10px;text-align:left}
+.result th{background:var(--surface)}
+.result strong{color:#f59e0b}
+.result a{color:var(--accent)}
+.result blockquote{border-left:3px solid var(--accent);padding-left:12px;color:var(--text2)}
+.footer{text-align:center;color:var(--text2);font-size:12px;margin-top:40px;padding-top:20px;border-top:1px solid var(--border)}
+.back{display:inline-block;margin-top:12px;color:var(--accent);text-decoration:none;font-size:13px}
+.back:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="icon">&#x1F9E0;</div>
+  <div><h1>SmartResearch</h1><span>Second Brain Agent - DeepSeek + TF-IDF</span></div>
+</div>
+
+RESPONSE_PLACEHOLDER
+
+<div class="card">
+  <form method="post" action="/">
+    <h2>&#x1F4AC; 对话</h2>
+    <input name="query" placeholder="输入你的问题..." required>
+    <button type="submit">发送</button>
+  </form>
+</div>
+
+<div class="card">
+  <form method="post" action="/" enctype="multipart/form-data">
+    <h2>&#x1F4C4; 上传文件</h2>
+    <input type="file" name="file" required>
+    <button type="submit">上传并解析</button>
+  </form>
+</div>
+
+<div class="card">
+  <form method="post" action="/">
+    <h2>&#x1F517; 提交链接</h2>
+    <input name="url" placeholder="https://..." required>
+    <button type="submit">解析链接</button>
+  </form>
+</div>
+
+<div class="card">
+  <form method="get" action="/graph">
+    <h2>&#x1F578; 知识图谱</h2>
+    <button type="submit">查看图谱</button>
+  </form>
+</div>
+
+<div class="footer">SmartResearch v0.1.0 | DeepSeek + TF-IDF</div>
+</body>
+</html>

@@ -7,6 +7,7 @@ import fitz  # PyMuPDF
 from docx import Document as DocxDocument
 from pptx import Presentation
 import markdown as md_lib
+from src.agents.base import BaseAgent, agent_registry
 from src.services.llm_service import LLMService
 from src.services.kg_service import KGService
 from src.services.rag_service import RAGService
@@ -16,15 +17,15 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class DocumentAgent:
+class DocumentAgent(BaseAgent):
     """多格式文档解析 + 知识提取 Agent"""
+
+    AGENT_TYPE = "document"
 
     SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".txt", ".md"}
 
-    def __init__(self):
-        self.llm = LLMService()
-        self.kg = KGService()
-        self.rag = RAGService()
+    def __init__(self, llm=None, kg=None, rag=None):
+        super().__init__(llm=llm, kg=kg, rag=rag)
 
     # ------- 公共入口 -------
     async def process(self, file_path: str) -> Optional[Dict[str, Any]]:
@@ -41,6 +42,8 @@ class DocumentAgent:
         if not raw_text:
             logger.warning(f"文件内容为空: {file_path}")
             return None
+
+        self._ensure_services()
 
         # LLM 提取
         extraction = await self.llm.extract_knowledge(raw_text[:10000])
@@ -87,3 +90,5 @@ class DocumentAgent:
     def _parse_md(path: str) -> str:
         with open(path, "r", encoding="utf-8", errors="ignore") as f:
             return f.read().strip()
+
+

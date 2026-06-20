@@ -1,0 +1,59 @@
+﻿<!DOCTYPE html>
+<html lang="zh">
+<head><meta charset="UTF-8"><title>SmartResearch</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:sans-serif;background:#0f172a;color:#e2e8f0;max-width:800px;margin:0 auto;padding:20px}
+h1{color:#38bdf8;margin-bottom:10px}
+.card{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:20px;margin:16px 0}
+.card h3{color:#38bdf8;margin-bottom:10px}
+input,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#e2e8f0;font-size:14px;margin:8px 0}
+button{width:100%;padding:12px;border-radius:10px;border:none;background:#0284c7;color:#fff;font-size:15px;cursor:pointer;margin:8px 0}
+button:hover{background:#0369a1}
+.result{background:#0f172a;border-radius:8px;padding:16px;margin:16px 0;white-space:pre-wrap;line-height:1.6}
+hr{border-color:#334155;margin:20px 0}
+code{background:#334155;padding:2px 6px;border-radius:4px}
+</style>
+</head>
+<body>
+<h1>SmartResearch</h1>
+<p style="color:#94a3b8;margin-bottom:20px">多模态 Second Brain Agent</p>
+
+<!-- Chat -->
+<div class="card">
+<h3>对话</h3>
+<form method="post" action="/api/chat-form">
+<input name="query" placeholder="输入你的问题..." required>
+<button type="submit">发送</button>
+</form>
+</div>
+
+<!-- Upload -->
+<div class="card">
+<h3>上传文件</h3>
+<form method="post" action="/api/upload" enctype="multipart/form-data">
+<input type="file" name="file" required>
+<button type="submit">上传并解析</button>
+</form>
+</div>
+
+<!-- Link -->
+<div class="card">
+<h3>提交链接</h3>
+<form method="post" action="/api/link-form">
+<input name="url" placeholder="https://..." required>
+<button type="submit">解析链接</button>
+</form>
+</div>
+
+<!-- Graph -->
+<div class="card">
+<h3>知识图谱</h3>
+<form method="get" action="/api/graph-html">
+<button type="submit">查看图谱</button>
+</form>
+</div>
+
+<p style="color:#475569;text-align:center;margin-top:30px;font-size:12px">SmartResearch v0.1.0 | DeepSeek + TF-IDF</p>
+</body>
+</html>

@@ -1,47 +1,51 @@
-fastapi==0.115.6
+﻿fastapi==0.115.6
 uvicorn[standard]==0.34.0
 python-dotenv==1.0.1
 pydantic==2.10.4
 pydantic-settings==2.7.1
 
-# LangChain 生态
-langchain==0.3.14
+# LangChain 鐢熸€?langchain==0.3.14
 langchain-openai==0.3.0
 langchain-community==0.3.14
 langchain-chroma==0.2.2
 langchain-text-splitters==0.3.5
 langgraph==0.2.61
 
-# 数据库
-neo4j==5.27.0
+# 鏁版嵁搴?neo4j==5.27.0
 chromadb==0.5.23
 redis==5.2.1
 
-# 文档解析
+# 鏂囨。瑙ｆ瀽
 pymupdf==1.25.1
 python-docx==1.1.2
 python-pptx==1.0.2
 markdown==3.7
 
-# 图像处理
+# 鍥惧儚澶勭悊
 Pillow==11.1.0
 pytesseract==0.3.13
 
-# 网页爬取
+# 缃戦〉鐖彇
 beautifulsoup4==4.12.3
 httpx==0.28.1
 
-# 任务队列
+# 浠诲姟闃熷垪
 celery==5.4.0
 
-# 工具
+# 宸ュ叿
+loguru==0.7.3
 aiofiles==24.1.0
 python-multipart==0.0.19
 
-# 视频处理
+# 瑙嗛澶勭悊
 yt-dlp>=2024.0
 youtube-transcript-api>=0.6.0
 
-# 测试
+# 娴嬭瘯
 pytest==8.3.4
 pytest-asyncio==0.25.0
+
+
+# 本地 Embedding（配合 USE_LOCAL_EMBEDDING=True）
+langchain-huggingface==0.1.2
+sentence-transformers==3.3.1

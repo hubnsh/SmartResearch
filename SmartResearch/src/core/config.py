@@ -27,8 +27,11 @@ class Settings(BaseSettings):
     NEO4J_USER: str = "neo4j"
     NEO4J_PASSWORD: str = "password"
 
-    # ==================== ChromaDB（本地）====================
+    # ==================== ChromaDB ====================
+    # 本地模式（默认）：文件持久化到 CHROMA_DB_PATH
     CHROMA_DB_PATH: str = "./data/chroma"
+    # Server 模式（配合 docker-compose）：填写 http://localhost:8000 则走远程 Server
+    CHROMA_SERVER_URL: str = ""
 
     # ==================== Redis / Celery（可选）====================
     REDIS_URL: str = "redis://localhost:6379/0"

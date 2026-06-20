@@ -1,4 +1,4 @@
-﻿# Environment & API Keys
+# Environment & API Keys
 .env
 
 # Python
@@ -34,3 +34,7 @@ docker-compose.override.yml
 # OS
 .DS_Store
 Thumbs.db
+
+# Temp files
+*_orig.py
+server*.log
