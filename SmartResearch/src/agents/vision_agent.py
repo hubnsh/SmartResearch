@@ -10,6 +10,7 @@ import base64
 import os
 import logging
 from PIL import Image
+from src.agents.base import BaseAgent
 from src.services.llm_service import LLMService
 from src.services.kg_service import KGService
 from src.services.rag_service import RAGService
@@ -26,15 +27,14 @@ except ImportError:
     pass
 
 
-class OCRVisionAgent:
+class OCRVisionAgent(BaseAgent):
     """图片多模态解析 Agent"""
 
+    AGENT_TYPE = "vision"
     SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".webp"}
 
-    def __init__(self):
-        self.llm = LLMService()
-        self.kg = KGService()
-        self.rag = RAGService()
+    def __init__(self, llm=None, kg=None, rag=None):
+        super().__init__(llm=llm, kg=kg, rag=rag)
 
     # ========== 公共入口 ==========
     async def process(self, file_path: str) -> Optional[Dict[str, Any]]:
@@ -42,6 +42,8 @@ class OCRVisionAgent:
         if ext not in self.SUPPORTED_EXTENSIONS:
             logger.warning(f"[Vision] 不支持的图片格式: {ext}")
             return None
+
+        self._ensure_services()
 
         if not os.path.exists(file_path):
             logger.error(f"[Vision] 文件不存在: {file_path}")

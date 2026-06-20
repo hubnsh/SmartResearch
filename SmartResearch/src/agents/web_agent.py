@@ -5,6 +5,7 @@ Web Agent —— 解析网页链接、Arxiv 论文、GitHub 仓库，
 import re
 import httpx
 from bs4 import BeautifulSoup
+from src.agents.base import BaseAgent
 from src.services.llm_service import LLMService
 from src.services.kg_service import KGService
 from src.services.rag_service import RAGService
@@ -17,16 +18,18 @@ _ARXIV_PATTERN = re.compile(r"arxiv\.org/(?:abs|pdf)/(\d+\.\d+)")
 _GITHUB_PATTERN = re.compile(r"github\.com/([^/]+)/([^/]+)")
 
 
-class WebAgent:
+class WebAgent(BaseAgent):
     """网页链接解析 + 知识提取 Agent"""
 
-    def __init__(self):
-        self.llm = LLMService()
-        self.kg = KGService()
-        self.rag = RAGService()
+    AGENT_TYPE = "web"
+    SUPPORTED_EXTENSIONS = set()
+
+    def __init__(self, llm=None, kg=None, rag=None):
+        super().__init__(llm=llm, kg=kg, rag=rag)
 
     # ------- 公共入口：自动识别链接类型 -------
     async def process(self, url: str) -> Optional[Dict[str, Any]]:
+        self._ensure_services()
         if _ARXIV_PATTERN.search(url):
             return await self._process_arxiv(url)
         if _GITHUB_PATTERN.search(url):

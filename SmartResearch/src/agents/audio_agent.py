@@ -1,4 +1,4 @@
-﻿"""
+"""
 AudioAgent —— 音频文件处理（MP3/WAV/M4A）
 演示如何扩展 Agent 系统
 """

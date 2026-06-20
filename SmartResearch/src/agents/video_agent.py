@@ -8,6 +8,7 @@ import tempfile
 import httpx
 import json
 import logging
+from src.agents.base import BaseAgent
 from src.services.llm_service import LLMService
 from src.services.kg_service import KGService
 from src.services.rag_service import RAGService
@@ -34,16 +35,18 @@ except ImportError:
     pass
 
 
-class VideoAgent:
+class VideoAgent(BaseAgent):
     """视频解析 Agent：字幕提取 → 知识点总结 → 图谱"""
 
-    def __init__(self):
-        self.llm = LLMService()
-        self.kg = KGService()
-        self.rag = RAGService()
+    AGENT_TYPE = "video"
+    SUPPORTED_EXTENSIONS = set()
+
+    def __init__(self, llm=None, kg=None, rag=None):
+        super().__init__(llm=llm, kg=kg, rag=rag)
 
     # ========== 公共入口：自动识别视频源 ==========
     async def process(self, url: str) -> Optional[Dict[str, Any]]:
+        self._ensure_services()
         if _BILIBILI_PATTERN.search(url):
             return await self._process_bilibili(url)
         if _YOUTUBE_PATTERN.search(url):
