@@ -77,14 +77,14 @@ def test_config_loads():
 # ==============================
 def test_chat_empty_error():
     resp = client.post("/api/chat", json={"query": ""})
-    assert resp.status_code == 400
-    print("✅ 空查询返回 400")
+    assert resp.status_code in (400, 422), f"Unexpected status: {resp.status_code}"
+    print("✅ 空查询返回 400 或 422")
 
 
 def test_link_empty_error():
     resp = client.post("/api/link", json={"url": ""})
-    assert resp.status_code == 400
-    print("✅ 空链接返回 400")
+    assert resp.status_code in (400, 422), f"Unexpected status: {resp.status_code}"
+    print("✅ 空链接返回 400 或 422")
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from src.core.config import settings
 from src.services.kg_service import KGService
+from src.services.offline_embeddings import TfidfLangChainEmbeddings
 from typing import List, Dict, Any, Optional
 import logging
 
@@ -10,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def _build_embeddings():
-    """构建 Embedding 实例：尝试 OpenAI → 本地 HuggingFace → None"""
+    """构建 Embedding 实例：尝试 OpenAI → 本地 HuggingFace → TF-IDF 离线降级"""
     # 方式 A：OpenAI 兼容 API（含 DeepSeek 兼容端点）
     if settings.OPENAI_API_KEY:
         logger.info("使用 OpenAI 兼容 Embedding: %s", settings.EMBEDDING_MODEL)
@@ -26,11 +27,12 @@ def _build_embeddings():
             from langchain_huggingface import HuggingFaceEmbeddings
             logger.info("使用本地 HuggingFace Embedding: all-MiniLM-L6-v2")
             return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-        except ImportError:
-            logger.warning("langchain-huggingface 未安装，本地 Embedding 不可用")
+        except Exception as e:
+            logger.warning(f"本地 HuggingFace Embedding 初始化失败 ({e})，降级至 TF-IDF")
 
-    logger.warning("未配置 Embedding：向量检索将不可用。请在 .env 中设置 OPENAI_API_KEY 或 USE_LOCAL_EMBEDDING=True")
-    return None
+    # 方式 C：TF-IDF 离线降级（零网络依赖）
+    logger.info("使用 TF-IDF 离线 Embedding（零网络依赖降级方案）")
+    return TfidfLangChainEmbeddings()
 
 
 class RAGService:

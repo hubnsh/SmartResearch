@@ -41,6 +41,7 @@ hiddenimports = [
     'langchain_openai', 'langchain_chroma', 'langchain_text_splitters',
     'langchain_core', 'langchain_huggingface',
     'sklearn.feature_extraction.text',
+    'faster_whisper',
     'chromadb', 'loguru', 'uvicorn', 'fastapi',
     'pydantic', 'pydantic_settings',
 ]

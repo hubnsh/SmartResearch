@@ -1,6 +1,10 @@
 ﻿"""
 离线 Embedding 服务 —— 基于 scikit-learn TF-IDF
 不依赖任何外部模型下载，完全本地运行
+
+提供两个类：
+  - OfflineEmbeddings: 原始 TF-IDF 向量化
+  - TfidfLangChainEmbeddings: LangChain Embeddings 兼容包装
 """
 import pickle
 from pathlib import Path
@@ -52,3 +56,20 @@ class OfflineEmbeddings:
             return vec[0].tolist()
         except Exception:
             return [0.0] * 384
+
+
+class TfidfLangChainEmbeddings:
+    """LangChain 兼容的 Embeddings 包装器 —— 将 OfflineEmbeddings 适配为 LangChain 接口
+
+    实现了 langchain_core.embeddings.Embeddings 的 duck-typing 接口，
+    使得 OfflineEmbeddings 可以直接用于 ChromaDB 等 LangChain 组件。
+    """
+
+    def __init__(self, offline: OfflineEmbeddings = None):
+        self._offline = offline or OfflineEmbeddings()
+
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        return self._offline.embed_documents(texts)
+
+    def embed_query(self, text: str) -> List[float]:
+        return self._offline.embed_query(text)

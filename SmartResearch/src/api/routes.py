@@ -4,22 +4,22 @@ API 路由：文件上传、链接提交、对话、图谱查询。
 import os
 import uuid
 from fastapi import APIRouter, HTTPException, UploadFile, File
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from src.core.config import settings
 from src.services.dispatcher import TaskDispatcher
 
 router = APIRouter()
 dispatcher = TaskDispatcher()
 
-# ---- 请求模型 ----
+# ---- 请求模型（带输入校验）----
 class LinkRequest(BaseModel):
-    url: str
+    url: str = Field(..., min_length=1, max_length=8192, description="要解析的网页/视频链接")
 
 class ChatRequest(BaseModel):
-    query: str
+    query: str = Field(..., min_length=1, max_length=50000, description="用户提问内容")
 
 class ChatResponse(BaseModel):
-    answer: str           # Markdown 格式的回答
+    answer: str = Field(..., description="Markdown 格式的回答")
 
 
 # ==============================
@@ -161,8 +161,8 @@ a{color:#38bdf8}</style></head><body>
 from fastapi.responses import Response
 
 class MDRequest(BaseModel):
-    content: str
-    filename: str = "export.md"
+    content: str = Field(..., min_length=1, max_length=500000, description="Markdown 内容")
+    filename: str = Field("export.md", max_length=256, description="下载文件名")
 
 @router.post("/export-md")
 async def export_md(req: MDRequest):

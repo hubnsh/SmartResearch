@@ -9,6 +9,14 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     DEBUG: bool = True
 
+    # ---- CORS ----
+    # 开发环境默认为 ["*"]，生产环境请设置为具体域名
+    @property
+    def CORS_ORIGINS(self) -> list:
+        if self.APP_ENV == "production":
+            return ["http://localhost:8002"]
+        return ["*"]
+
     # ==================== LLM（DeepSeek 推荐）====================
     DEEPSEEK_API_KEY: Optional[str] = None       # ← 必填：DeepSeek 对话 / 摘要 / 提取
     DEEPSEEK_BASE_URL: str = "https://api.deepseek.com"
