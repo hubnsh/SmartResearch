@@ -5,7 +5,7 @@ import os
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QPushButton, QLabel, QLineEdit, QCheckBox,
+    QPushButton, QLabel, QLineEdit, QCheckBox, QComboBox,
     QGroupBox, QMessageBox, QDialogButtonBox,
     QTextBrowser, QPlainTextEdit, QTabWidget,
 )
@@ -17,12 +17,40 @@ from desktop.models import SourceItem, SourceType, ItemStatus
 
 
 class SettingsDialog(QDialog):
-    """API 配置对话框"""
+    """API 配置对话框 — 支持多 LLM 提供商"""
+
+    # 提供商配置映射：key -> (显示名, 需要哪些字段)
+    PROVIDERS = {
+        "deepseek": {
+            "label": "DeepSeek（推荐，性价比高）",
+            "fields": ["api_key", "base_url", "model"],
+            "defaults": {"base_url": "https://api.deepseek.com", "model": "deepseek-chat"},
+            "tips": "注册: https://platform.deepseek.com",
+        },
+        "openai": {
+            "label": "OpenAI",
+            "fields": ["api_key", "base_url", "model"],
+            "defaults": {"base_url": "https://api.openai.com/v1", "model": "gpt-4o"},
+            "tips": "注册: https://platform.openai.com",
+        },
+        "claude": {
+            "label": "Anthropic Claude",
+            "fields": ["api_key", "model"],
+            "defaults": {"model": "claude-sonnet-4-20250514"},
+            "tips": "注册: https://console.anthropic.com",
+        },
+        "custom": {
+            "label": "自定义（OpenAI 兼容）",
+            "fields": ["api_key", "base_url", "model"],
+            "defaults": {"base_url": "https://api.openai.com/v1", "model": "gpt-4o-mini"},
+            "tips": "支持 Groq / Together / vLLM / Ollama 等",
+        },
+    }
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("⚙️ 设置")
-        self.setMinimumWidth(520)
+        self.setMinimumWidth(560)
         self.setModal(True)
         self._setup_ui()
         self._load_settings()
@@ -31,46 +59,74 @@ class SettingsDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.setSpacing(16)
 
-        # LLM 配置
-        llm_group = QGroupBox("🤖 LLM 配置（DeepSeek 推荐）")
-        llm_form = QFormLayout(llm_group)
-        llm_form.setSpacing(8)
+        # ========== LLM 提供商选择 ==========
+        provider_group = QGroupBox("🤖 LLM 提供商")
+        provider_layout = QVBoxLayout(provider_group)
+        provider_layout.setSpacing(8)
 
-        self.edit_deepseek_key = QLineEdit()
-        self.edit_deepseek_key.setEchoMode(QLineEdit.Password)
-        self.edit_deepseek_key.setPlaceholderText("sk-...")
-        llm_form.addRow("API Key:", self.edit_deepseek_key)
+        # 下拉选择
+        sel_row = QHBoxLayout()
+        sel_row.addWidget(QLabel("选择 LLM 提供商:"))
+        self.cmb_provider = QComboBox()
+        for key, info in self.PROVIDERS.items():
+            self.cmb_provider.addItem(info["label"], key)
+        self.cmb_provider.currentIndexChanged.connect(self._on_provider_changed)
+        sel_row.addWidget(self.cmb_provider, 1)
+        provider_layout.addLayout(sel_row)
 
-        self.edit_deepseek_url = QLineEdit()
-        self.edit_deepseek_url.setPlaceholderText("https://api.deepseek.com")
-        llm_form.addRow("Base URL:", self.edit_deepseek_url)
+        # 提示标签
+        self.lbl_provider_tip = QLabel("")
+        self.lbl_provider_tip.setStyleSheet("color: #f59e0b; font-size: 12px;")
+        self.lbl_provider_tip.setWordWrap(True)
+        provider_layout.addWidget(self.lbl_provider_tip)
 
-        self.edit_llm_model = QLineEdit()
-        self.edit_llm_model.setPlaceholderText("deepseek-chat")
-        llm_form.addRow("模型:", self.edit_llm_model)
+        # 动态表单区域
+        self.provider_form = QFormLayout()
+        self.provider_form.setSpacing(8)
 
-        layout.addWidget(llm_group)
+        # API Key（所有提供商都需要）
+        self.edit_api_key = QLineEdit()
+        self.edit_api_key.setEchoMode(QLineEdit.Password)
+        self.edit_api_key.setPlaceholderText("sk-...")
+        self.provider_form.addRow("API Key:", self.edit_api_key)
 
-        # Embedding 配置
+        # Base URL（Claude 不需要）
+        self.edit_base_url = QLineEdit()
+        self.edit_base_url.setPlaceholderText("https://api.deepseek.com")
+        self.provider_form.addRow("API Base URL:", self.edit_base_url)
+
+        # Model
+        self.edit_model = QLineEdit()
+        self.edit_model.setPlaceholderText("deepseek-chat")
+        self.provider_form.addRow("模型:", self.edit_model)
+
+        provider_layout.addLayout(self.provider_form)
+        layout.addWidget(provider_group)
+
+        # ========== Embedding 配置 ==========
         emb_group = QGroupBox("🔤 向量化 Embedding")
         emb_form = QFormLayout(emb_group)
         emb_form.setSpacing(8)
 
-        self.chk_local_emb = QCheckBox("使用本地 Embedding 模型（无需联网）")
+        self.chk_local_emb = QCheckBox("使用本地 Embedding 模型（无需联网，首次启动需下载）")
         emb_form.addRow(self.chk_local_emb)
 
-        self.edit_openai_key = QLineEdit()
-        self.edit_openai_key.setEchoMode(QLineEdit.Password)
-        self.edit_openai_key.setPlaceholderText("可选：用于 Embedding 的 OpenAI Key")
-        emb_form.addRow("OpenAI Key:", self.edit_openai_key)
+        self.edit_emb_key = QLineEdit()
+        self.edit_emb_key.setEchoMode(QLineEdit.Password)
+        self.edit_emb_key.setPlaceholderText("留空则复用 LLM 的 API Key")
+        emb_form.addRow("Embedding API Key:", self.edit_emb_key)
 
-        self.edit_openai_base = QLineEdit()
-        self.edit_openai_base.setPlaceholderText("https://api.openai.com/v1")
-        emb_form.addRow("OpenAI Base:", self.edit_openai_base)
+        self.edit_emb_base = QLineEdit()
+        self.edit_emb_base.setPlaceholderText("https://api.openai.com/v1")
+        emb_form.addRow("Embedding Base URL:", self.edit_emb_base)
+
+        self.edit_emb_model = QLineEdit()
+        self.edit_emb_model.setPlaceholderText("text-embedding-3-small")
+        emb_form.addRow("Embedding 模型:", self.edit_emb_model)
 
         layout.addWidget(emb_group)
 
-        # 按钮
+        # ========== 按钮 ==========
         buttons = QDialogButtonBox(
             QDialogButtonBox.Ok | QDialogButtonBox.Cancel
         )
@@ -78,63 +134,105 @@ class SettingsDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
+    def _on_provider_changed(self, index: int):
+        """切换提供商时更新表单和提示"""
+        key = self.cmb_provider.currentData()
+        info = self.PROVIDERS.get(key, {})
+        defaults = info.get("defaults", {})
+        fields = info.get("fields", [])
+
+        # 更新提示
+        self.lbl_provider_tip.setText(f"💡 {info.get('tips', '')}")
+
+        # 更新占位符
+        placeholders = {
+            "deepseek": ("sk-... (DeepSeek)", "https://api.deepseek.com", "deepseek-chat"),
+            "openai": ("sk-... (OpenAI)", "https://api.openai.com/v1", "gpt-4o"),
+            "claude": ("sk-ant-... (Anthropic)", "Claude 无需此字段", "claude-sonnet-4-20250514"),
+            "custom": ("sk-... (你的 API Key)", "https://api.openai.com/v1", "gpt-4o-mini"),
+        }
+        ph = placeholders.get(key, placeholders["deepseek"])
+        self.edit_api_key.setPlaceholderText(ph[0])
+        self.edit_base_url.setPlaceholderText(ph[1])
+        self.edit_model.setPlaceholderText(ph[2])
+
+        # Base URL 对 Claude 显示为禁用
+        is_claude = key == "claude"
+        self.edit_base_url.setEnabled(not is_claude)
+        if is_claude:
+            self.edit_base_url.setText("")
+            self.lbl_provider_tip.setText(
+                "💡 Claude 不需要 Base URL，仅需 API Key（sk-ant-...）和模型名"
+            )
+
     def _load_settings(self):
-        self.edit_deepseek_key.setText(settings.DEEPSEEK_API_KEY or "")
-        self.edit_deepseek_url.setText(settings.DEEPSEEK_BASE_URL)
-        self.edit_llm_model.setText(settings.DEEPSEEK_MODEL)
+        """从当前配置加载值到表单"""
+        # 提供商
+        idx = self.cmb_provider.findData(settings.LLM_PROVIDER)
+        if idx >= 0:
+            self.cmb_provider.setCurrentIndex(idx)
+
+        # LLM 配置
+        self.edit_api_key.setText(settings.llm_api_key or "")
+
+        base_map = {
+            "deepseek": settings.DEEPSEEK_BASE_URL,
+            "openai": settings.OPENAI_API_BASE,
+            "custom": settings.CUSTOM_API_BASE,
+        }
+        self.edit_base_url.setText(base_map.get(settings.LLM_PROVIDER, ""))
+
+        model_map = {
+            "deepseek": settings.DEEPSEEK_MODEL,
+            "openai": settings.OPENAI_MODEL,
+            "claude": settings.ANTHROPIC_MODEL,
+            "custom": settings.CUSTOM_MODEL,
+        }
+        self.edit_model.setText(model_map.get(settings.LLM_PROVIDER, ""))
+
+        # Embedding
         self.chk_local_emb.setChecked(settings.USE_LOCAL_EMBEDDING)
-        self.edit_openai_key.setText(settings.OPENAI_API_KEY or "")
-        self.edit_openai_base.setText(settings.OPENAI_API_BASE)
+        self.edit_emb_key.setText(settings.EMBEDDING_API_KEY or "")
+        self.edit_emb_base.setText(settings.EMBEDDING_API_BASE)
+        self.edit_emb_model.setText(settings.EMBEDDING_MODEL)
+
+        # 刷新表单状态
+        self._on_provider_changed(self.cmb_provider.currentIndex())
 
     def _on_save(self):
         """保存设置到 .env 文件"""
         try:
+            provider = self.cmb_provider.currentData()
+
             # 更新内存中的配置
-            settings.DEEPSEEK_API_KEY = self.edit_deepseek_key.text().strip() or None
-            settings.DEEPSEEK_BASE_URL = self.edit_deepseek_url.text().strip() or "https://api.deepseek.com"
-            settings.DEEPSEEK_MODEL = self.edit_llm_model.text().strip() or "deepseek-chat"
+            settings.LLM_PROVIDER = provider
+            api_key = self.edit_api_key.text().strip() or None
+
+            # 按提供商设置
+            if provider == "deepseek":
+                settings.DEEPSEEK_API_KEY = api_key
+                settings.DEEPSEEK_BASE_URL = self.edit_base_url.text().strip() or "https://api.deepseek.com"
+                settings.DEEPSEEK_MODEL = self.edit_model.text().strip() or "deepseek-chat"
+            elif provider == "openai":
+                settings.OPENAI_API_KEY = api_key
+                settings.OPENAI_API_BASE = self.edit_base_url.text().strip() or "https://api.openai.com/v1"
+                settings.OPENAI_MODEL = self.edit_model.text().strip() or "gpt-4o"
+            elif provider == "claude":
+                settings.ANTHROPIC_API_KEY = api_key
+                settings.ANTHROPIC_MODEL = self.edit_model.text().strip() or "claude-sonnet-4-20250514"
+            elif provider == "custom":
+                settings.CUSTOM_API_KEY = api_key
+                settings.CUSTOM_API_BASE = self.edit_base_url.text().strip() or "https://api.openai.com/v1"
+                settings.CUSTOM_MODEL = self.edit_model.text().strip() or "gpt-4o-mini"
+
+            # Embedding
             settings.USE_LOCAL_EMBEDDING = self.chk_local_emb.isChecked()
-            settings.OPENAI_API_KEY = self.edit_openai_key.text().strip() or None
-            settings.OPENAI_API_BASE = self.edit_openai_base.text().strip() or "https://api.openai.com/v1"
+            settings.EMBEDDING_API_KEY = self.edit_emb_key.text().strip() or None
+            settings.EMBEDDING_API_BASE = self.edit_emb_base.text().strip() or "https://api.openai.com/v1"
+            settings.EMBEDDING_MODEL = self.edit_emb_model.text().strip() or "text-embedding-3-small"
 
-            # 尝试写入 .env 文件
-            env_path = settings.model_config.get("env_file") or ".env"
-            lines = []
-            if hasattr(env_path, "__iter__") and not isinstance(env_path, str):
-                env_path = env_path[0] if env_path else ".env"
-
-            import os
-            full_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), env_path)
-
-            # 读取现有 .env
-            existing = {}
-            if os.path.exists(full_path):
-                with open(full_path, "r", encoding="utf-8") as f:
-                    for line in f:
-                        line = line.strip()
-                        if "=" in line and not line.startswith("#"):
-                            k, v = line.split("=", 1)
-                            existing[k.strip()] = v.strip()
-
-            # 更新
-            existing["DEEPSEEK_API_KEY"] = settings.DEEPSEEK_API_KEY or ""
-            existing["DEEPSEEK_BASE_URL"] = settings.DEEPSEEK_BASE_URL
-            existing["DEEPSEEK_MODEL"] = settings.DEEPSEEK_MODEL
-            existing["USE_LOCAL_EMBEDDING"] = str(settings.USE_LOCAL_EMBEDDING)
-            if settings.OPENAI_API_KEY:
-                existing["OPENAI_API_KEY"] = settings.OPENAI_API_KEY
-            if settings.OPENAI_API_BASE:
-                existing["OPENAI_API_BASE"] = settings.OPENAI_API_BASE
-
-            with open(full_path, "w", encoding="utf-8") as f:
-                f.write("# ========== SmartResearch Desktop 配置 ==========\n")
-                f.write(f"DEEPSEEK_API_KEY={existing.get('DEEPSEEK_API_KEY', '')}\n")
-                f.write(f"DEEPSEEK_BASE_URL={existing.get('DEEPSEEK_BASE_URL', 'https://api.deepseek.com')}\n")
-                f.write(f"DEEPSEEK_MODEL={existing.get('DEEPSEEK_MODEL', 'deepseek-chat')}\n")
-                f.write(f"USE_LOCAL_EMBEDDING={existing.get('USE_LOCAL_EMBEDDING', 'True')}\n")
-                if existing.get("OPENAI_API_KEY"):
-                    f.write(f"OPENAI_API_KEY={existing['OPENAI_API_KEY']}\n")
-                    f.write(f"OPENAI_API_BASE={existing.get('OPENAI_API_BASE', 'https://api.openai.com/v1')}\n")
+            # 写入 .env 文件
+            self._write_env(provider)
 
             # 清除 Agent 服务缓存，下次调用时重新初始化
             try:
@@ -145,11 +243,93 @@ class SettingsDialog(QDialog):
             except Exception:
                 pass
 
-            QMessageBox.information(self, "✅ 已保存", "设置已保存，已清除服务缓存。")
+            QMessageBox.information(
+                self, "✅ 已保存",
+                f"LLM 提供商已切换为: {self.PROVIDERS[provider]['label']}\n\n"
+                "已清除服务缓存，下次对话将使用新的 LLM 配置。"
+            )
             self.accept()
         except Exception as e:
             QMessageBox.warning(self, "⚠️ 保存失败", f"保存设置时出错：{e}")
-            self.accept()  # 即使文件写入失败，内存中的设置已生效
+            self.accept()
+
+    def _write_env(self, provider: str):
+        """将当前设置写入 .env 文件"""
+        import os as _os
+        env_path = _os.path.join(
+            _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))),
+            ".env",
+        )
+
+        # 读取现有 .env
+        existing = {}
+        if _os.path.exists(env_path):
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if "=" in line and not line.startswith("#"):
+                        k, v = line.split("=", 1)
+                        existing[k.strip()] = v.strip()
+
+        # 更新 LLM 配置
+        existing["LLM_PROVIDER"] = provider
+        api_key = self.edit_api_key.text().strip()
+
+        if provider == "deepseek":
+            existing["DEEPSEEK_API_KEY"] = api_key
+            existing["DEEPSEEK_BASE_URL"] = self.edit_base_url.text().strip() or "https://api.deepseek.com"
+            existing["DEEPSEEK_MODEL"] = self.edit_model.text().strip() or "deepseek-chat"
+        elif provider == "openai":
+            existing["OPENAI_API_KEY"] = api_key
+            existing["OPENAI_API_BASE"] = self.edit_base_url.text().strip() or "https://api.openai.com/v1"
+            existing["OPENAI_MODEL"] = self.edit_model.text().strip() or "gpt-4o"
+        elif provider == "claude":
+            existing["ANTHROPIC_API_KEY"] = api_key
+            existing["ANTHROPIC_MODEL"] = self.edit_model.text().strip() or "claude-sonnet-4-20250514"
+        elif provider == "custom":
+            existing["CUSTOM_API_KEY"] = api_key
+            existing["CUSTOM_API_BASE"] = self.edit_base_url.text().strip() or "https://api.openai.com/v1"
+            existing["CUSTOM_MODEL"] = self.edit_model.text().strip() or "gpt-4o-mini"
+
+        # Embedding
+        existing["USE_LOCAL_EMBEDDING"] = str(self.chk_local_emb.isChecked())
+        emb_key = self.edit_emb_key.text().strip()
+        if emb_key:
+            existing["EMBEDDING_API_KEY"] = emb_key
+        existing["EMBEDDING_API_BASE"] = self.edit_emb_base.text().strip() or "https://api.openai.com/v1"
+        existing["EMBEDDING_MODEL"] = self.edit_emb_model.text().strip() or "text-embedding-3-small"
+
+        # 写入文件
+        with open(env_path, "w", encoding="utf-8") as f:
+            f.write("# ========== SmartResearch Desktop 配置 ==========\n")
+            f.write(f"# 最后修改: LLM_PROVIDER={provider}\n")
+            f.write(f"LLM_PROVIDER={provider}\n\n")
+
+            if provider == "deepseek":
+                f.write("# ---- DeepSeek ----\n")
+                f.write(f"DEEPSEEK_API_KEY={existing.get('DEEPSEEK_API_KEY', '')}\n")
+                f.write(f"DEEPSEEK_BASE_URL={existing.get('DEEPSEEK_BASE_URL', 'https://api.deepseek.com')}\n")
+                f.write(f"DEEPSEEK_MODEL={existing.get('DEEPSEEK_MODEL', 'deepseek-chat')}\n")
+            elif provider == "openai":
+                f.write("# ---- OpenAI ----\n")
+                f.write(f"OPENAI_API_KEY={existing.get('OPENAI_API_KEY', '')}\n")
+                f.write(f"OPENAI_API_BASE={existing.get('OPENAI_API_BASE', 'https://api.openai.com/v1')}\n")
+                f.write(f"OPENAI_MODEL={existing.get('OPENAI_MODEL', 'gpt-4o')}\n")
+            elif provider == "claude":
+                f.write("# ---- Anthropic Claude ----\n")
+                f.write(f"ANTHROPIC_API_KEY={existing.get('ANTHROPIC_API_KEY', '')}\n")
+                f.write(f"ANTHROPIC_MODEL={existing.get('ANTHROPIC_MODEL', 'claude-sonnet-4-20250514')}\n")
+            elif provider == "custom":
+                f.write("# ---- 自定义 OpenAI 兼容 ----\n")
+                f.write(f"CUSTOM_API_KEY={existing.get('CUSTOM_API_KEY', '')}\n")
+                f.write(f"CUSTOM_API_BASE={existing.get('CUSTOM_API_BASE', 'https://api.openai.com/v1')}\n")
+                f.write(f"CUSTOM_MODEL={existing.get('CUSTOM_MODEL', 'gpt-4o-mini')}\n")
+
+            f.write("\n# ---- Embedding ----\n")
+            f.write(f"USE_LOCAL_EMBEDDING={existing.get('USE_LOCAL_EMBEDDING', 'False')}\n")
+            f.write(f"EMBEDDING_API_KEY={existing.get('EMBEDDING_API_KEY', '')}\n")
+            f.write(f"EMBEDDING_API_BASE={existing.get('EMBEDDING_API_BASE', 'https://api.openai.com/v1')}\n")
+            f.write(f"EMBEDDING_MODEL={existing.get('EMBEDDING_MODEL', 'text-embedding-3-small')}\n")
 
 
 class AboutDialog(QDialog):

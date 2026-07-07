@@ -17,15 +17,30 @@ logger = logging.getLogger(__name__)
 #  工具：检查 API Key 是否已配置
 # ──────────────────────────────────────────────
 def _check_api_key() -> Optional[str]:
-    """检查 DeepSeek API Key，未配置时返回错误信息"""
+    """检查当前 LLM 提供商是否已配置 API Key，未配置时返回错误信息"""
     try:
         from src.core.config import settings
-        if not settings.DEEPSEEK_API_KEY:
+
+        provider = settings.LLM_PROVIDER
+        api_key = settings.llm_api_key
+
+        if not api_key:
+            provider_names = {
+                "deepseek": "DeepSeek",
+                "openai": "OpenAI",
+                "claude": "Anthropic Claude",
+                "custom": "自定义 API",
+            }
+            name = provider_names.get(provider, provider)
+
             return (
-                "DeepSeek API Key 未配置！\n\n"
-                "请通过「编辑 → 设置」菜单填入 DEEPSEEK_API_KEY，\n"
-                "或在 .env 文件中设置 DEEPSEEK_API_KEY=sk-...\n\n"
-                "DeepSeek 注册地址: https://platform.deepseek.com"
+                f"{name} API Key 未配置！\n\n"
+                f"当前 LLM 提供商: {name}\n\n"
+                f"请通过「编辑 → 设置」菜单配置 {name} 的 API Key，\n"
+                f"或在 .env 文件中设置对应环境变量。\n\n"
+                f"DeepSeek 注册: https://platform.deepseek.com\n"
+                f"OpenAI 注册:   https://platform.openai.com\n"
+                f"Claude 注册:   https://console.anthropic.com"
             )
         return None
     except Exception as e:
