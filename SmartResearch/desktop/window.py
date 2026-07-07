@@ -87,7 +87,8 @@ class MainWindow(QMainWindow):
         self.progress_bar.setVisible(False)
         self.progress_bar.setTextVisible(False)
 
-        self.lbl_status = QLabel("就绪")
+        self.lbl_status = QLabel("就绪 — 拖入图片或点击「导入链接」开始使用")
+        self.lbl_status.setStyleSheet("padding: 0 4px;")
         self.status_bar.addWidget(self.lbl_status, 1)
         self.status_bar.addPermanentWidget(self.progress_bar)
 
@@ -291,9 +292,23 @@ class MainWindow(QMainWindow):
         """处理出错回调"""
         self.source_panel.update_item_status(item_id, ItemStatus.ERROR, error_msg)
         self._hide_progress()
-        self.lbl_status.setText(f"处理失败: {error_msg[:50]}")
+        self.lbl_status.setText(f"❌ 处理失败: {error_msg[:60]}")
         self._update_ui_state()
         self._cleanup_workers()
+        # 对明显的外部链接错误，提示用户可能的原因
+        item = self.source_panel.get_item(item_id)
+        if item and item.source_type == SourceType.LINK:
+            error_lower = error_msg.lower()
+            if "404" in error_lower:
+                self.status_bar.showMessage("💡 提示：链接页面不存在 (404)，请检查网址是否完整", 8000)
+            elif "403" in error_lower or "拒绝" in error_lower:
+                self.status_bar.showMessage("💡 提示：该网站拒绝了访问 (403)，可能启用了反爬保护", 8000)
+            elif "超时" in error_lower or "timeout" in error_lower:
+                self.status_bar.showMessage("💡 提示：请求超时，网站可能较慢或无法访问", 8000)
+            elif "javascript" in error_lower or "渲染" in error_lower:
+                self.status_bar.showMessage("💡 提示：该网站需要 JavaScript 渲染，建议直接粘贴文字内容", 8000)
+            elif "api key" in error_lower or "密钥" in error_lower:
+                self.status_bar.showMessage("💡 提示：请通过「编辑 → 设置」菜单配置 DeepSeek API Key", 8000)
 
     def _on_remove_item(self, item_id: str):
         """删除素材项"""

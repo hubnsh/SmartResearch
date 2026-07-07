@@ -1,0 +1,122 @@
+# ============================================================
+# SmartResearch Desktop 构建流水线
+# 触发条件：创建 Git tag (v*) 或手动 dispatch
+#
+# 构建产物：
+#   - SmartResearch-Desktop-{version}.zip
+#     包含独立的 SmartResearch.exe，无需安装 Python
+#     像 CCswitch 一样下载即用
+# ============================================================
+name: Build Desktop
+
+on:
+  push:
+    tags:
+      - 'v*'           # 推送 v1.0.0, v1.1.0 等标签时自动构建
+  workflow_dispatch:    # 允许手动触发
+    inputs:
+      version:
+        description: '版本号 (留空自动从 tag 获取)'
+        required: false
+        default: ''
+
+jobs:
+  build-windows:
+    name: Build Windows Desktop Exe
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: 'pip'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: ${{ runner.os }}-pip-${{ hashFiles('SmartResearch/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          pip install -r SmartResearch/requirements.txt
+          pip install pyinstaller
+
+      - name: Create default .env
+        run: |
+          copy SmartResearch\.env.example SmartResearch\.env
+
+      - name: Build Desktop EXE with PyInstaller
+        run: |
+          cd SmartResearch
+          python build_exe.py desktop
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" =~ ^refs/tags/v ]]; then
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "version=nightly" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Rename artifact with version
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          cd SmartResearch/dist
+          # 找到生成的 zip 文件
+          ZIP_FILE=$(ls *.zip 2>/dev/null | head -1)
+          if [ -n "$ZIP_FILE" ]; then
+            mv "$ZIP_FILE" "SmartResearch-Desktop-${VERSION}.zip"
+          fi
+          echo "Artifact: SmartResearch-Desktop-${VERSION}.zip"
+
+      - name: Upload ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SmartResearch-Desktop-${{ steps.version.outputs.version }}
+          path: SmartResearch/dist/SmartResearch-Desktop-*.zip
+          retention-days: 90
+
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SmartResearch-EXE-${{ steps.version.outputs.version }}
+          path: SmartResearch/dist/SmartResearch.exe
+          retention-days: 90
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: SmartResearch ${{ steps.version.outputs.version }}
+          body: |
+            ## 🧠 SmartResearch ${{ steps.version.outputs.version }}
+
+            ### 📦 下载
+            - [SmartResearch-Desktop-${{ steps.version.outputs.version }}.zip](https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.version }}/SmartResearch-Desktop-${{ steps.version.outputs.version }}.zip) — 桌面版（推荐，像 CCswitch 一样下载即用）
+            - `SmartResearch.exe` 也在下方 Assets 中
+
+            ### 🚀 使用方法
+            1. 下载 ZIP 并解压
+            2. 编辑 `.env` 文件，填入你的 DeepSeek API Key
+            3. 双击 `SmartResearch.exe` 启动
+
+            ### ✨ 功能
+            - 🖼️ 拖入图片 → 自动 OCR 文字识别
+            - 🔗 导入链接 → 自动抓取网页内容
+            - 🤖 AI 生成结构化笔记
+            - 📥 导出 Markdown 文件
+          files: |
+            SmartResearch/dist/SmartResearch.exe
+          fail_on_unmatched_files: false

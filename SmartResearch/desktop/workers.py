@@ -34,6 +34,10 @@ def _check_api_key() -> Optional[str]:
 
 def _friendly_error(e: Exception) -> str:
     """将异常转换为用户友好的中文错误消息"""
+    # 优先使用 LinkParseError 自带的友好消息
+    if hasattr(e, "message") and hasattr(e, "url"):
+        return str(e.message) if hasattr(e, "message") else str(e)[:300]
+
     msg = str(e).lower()
     if "401" in msg or "unauthorized" in msg or "authentication" in msg:
         return "API Key 无效或未授权，请在设置中检查 DEEPSEEK_API_KEY"
@@ -43,12 +47,20 @@ def _friendly_error(e: Exception) -> str:
         return "网络请求超时，请检查网络连接或稍后重试"
     if "connection" in msg or "connect" in msg or "refused" in msg:
         return "无法连接 API 服务，请检查网络和代理设置"
-    if "rate" in msg or "limit" in msg:
+    if "rate" in msg or "limit" in msg or "429" in msg:
         return "请求频率过高，请稍后重试"
     if "model" in msg and "not found" in msg:
         return "指定的模型不存在或已弃用，请在设置中检查模型名称"
     if "file" in msg and ("not found" in msg or "exist" in msg):
         return f"文件不存在或无法访问: {msg}"
+    if "404" in msg:
+        return "页面不存在（404），请检查链接是否完整"
+    if "403" in msg:
+        return "该网站拒绝访问（403），可能启用了反爬保护"
+    if "ssl" in msg or "certificate" in msg:
+        return "SSL证书验证失败，可能是网站安全证书问题"
+    if "dns" in msg or "resolve" in msg:
+        return "域名解析失败，请检查网址是否正确"
     # 截断过长信息
     return str(e)[:300]
 
@@ -143,8 +155,12 @@ class LinkProcessingWorker(QThread):
 
         agent_registry.register(WA)
         agent = WebAgent()
-        self.progress.emit(self.item.id, "正在用 LLM 提取知识...")
+        self.progress.emit(self.item.id, "正在抓取网页内容...")
         result = await agent.process(self.item.data)
+        if not result:
+            # 返回空结果但无异常 —— 给用户一个提示
+            logger.warning(f"[LinkWorker] WebAgent 返回空结果: {self.item.data}")
+            raise Exception("链接解析失败：无法提取到有效内容。可能原因：① 网站需要 JavaScript 渲染；② 链接已失效；③ 网站有反爬保护")
         return result if result else {}
 
 
