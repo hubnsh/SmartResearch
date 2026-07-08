@@ -61,7 +61,14 @@ class RAGService:
             chunk_size=1000,
             chunk_overlap=100,
         )
-        self.kg = KGService()
+        self._kg = None  # 延迟创建 KGService
+
+    @property
+    def kg(self):
+        """延迟初始化 KGService，避免启动时连接 Neo4j"""
+        if self._kg is None:
+            self._kg = KGService()
+        return self._kg
 
     # ------ 入库 ------
     def add_documents(self, texts: List[str], metadatas: List[Dict[str, Any]] = None):

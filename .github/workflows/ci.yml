@@ -1,20 +1,26 @@
 # ============================================================
 # SmartResearch CI 流水线
-# 触发条件：push 到 main、PR 到 main、手动 dispatch
+# 仅在主要代码变更时运行（跳过文档/README/图片变更）
 # ============================================================
 name: CI
 
 on:
   push:
     branches: [main, master]
+    paths-ignore:
+      - '**.md'
+      - '**.bat'
+      - '**.ico'
+      - '**.png'
+      - '**.spec'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
   pull_request:
     branches: [main, master]
   workflow_dispatch:
 
 jobs:
-  # ----------------------------------------------------------
-  # Job 1: 自动化测试（pytest）
-  # ----------------------------------------------------------
   test:
     runs-on: ubuntu-latest
 
@@ -27,32 +33,23 @@ jobs:
           python-version: "3.11"
           cache: 'pip'
 
-      - name: Cache pip dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('SmartResearch/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Install dependencies
+      - name: Install test dependencies only
         run: |
-          pip install -r SmartResearch/requirements.txt
-          pip install pytest-cov==6.0.0
+          pip install fastapi uvicorn pydantic pydantic-settings python-dotenv \
+            httpx beautifulsoup4 markdown loguru aiofiles python-multipart \
+            langchain-openai langchain-chroma langchain-text-splitters langchain-core \
+            chromadb neo4j scikit-learn numpy \
+            pymupdf python-docx python-pptx Pillow \
+            pytest pytest-cov pytest-asyncio
 
       - name: Create .env from template
-        run: |
-          cp SmartResearch/.env.example SmartResearch/.env
+        run: cp SmartResearch/.env.example SmartResearch/.env
 
-      - name: Run tests with coverage
+      - name: Run tests
         run: |
           cd SmartResearch
-          python -m pytest tests/ -v --tb=short --cov=src --cov-report=term-missing
+          python -m pytest tests/ -v --tb=short
 
-      - name: Upload coverage report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: SmartResearch/.coverage
-          retention-days: 7
+      - name: Notify success
+        if: success()
+        run: echo "✅ CI passed for ${{ github.sha }}"
