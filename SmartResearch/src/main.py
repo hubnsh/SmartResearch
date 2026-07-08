@@ -356,6 +356,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 <script>
 let currentSection = 'chat';
 
+// 带超时的 fetch（默认 30s 超时，避免请求卡死）
+async function fetchWithTimeout(url, options = {}, timeout = 30000) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    try {
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        clearTimeout(id);
+        return response;
+    } catch (e) {
+        clearTimeout(id);
+        if (e.name === 'AbortError') {
+            throw new Error('请求超时，请检查网络连接或稍后重试');
+        }
+        throw e;
+    }
+}
+
 function showSection(id) {
     document.querySelectorAll('.chat-area,.upload-section,.graph-section,.input-area').forEach(e => e.classList.add('hidden'));
     document.getElementById(id+'-section').classList.remove('hidden');
@@ -394,11 +411,11 @@ async function sendChat() {
     input.value = '';
     addMsg('system', ' 思考中...');
     try {
-        const res = await fetch('/api/chat', {
+        const res = await fetchWithTimeout('/api/chat', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({query: q})
-        });
+        }, 60000);
         const data = await res.json();
         document.querySelector('#chat-section .msg.system:last-child')?.remove();
         addMsg('agent', data.answer || '暂无回复');
@@ -415,7 +432,7 @@ async function uploadFile() {
     addMsg('system', ' 正在解析: ' + file.name);
     const form = new FormData(); form.append('file', file);
     try {
-        const res = await fetch('/api/upload', {method:'POST',body:form});
+        const res = await fetchWithTimeout('/api/upload', {method:'POST',body:form}, 60000);
         const data = await res.json();
         document.querySelector('#chat-section .msg.system:last-child')?.remove();
         if (data.summary) addMsg('agent', '**'+file.name+'**\n\n'+data.summary);
@@ -433,11 +450,11 @@ async function submitLink() {
     document.getElementById('link-input').value = '';
     addMsg('system', ' 正在解析...');
     try {
-        const res = await fetch('/api/link', {
+        const res = await fetchWithTimeout('/api/link', {
             method:'POST',
             headers:{'Content-Type':'application/json'},
             body:JSON.stringify({url})
-        });
+        }, 60000);
         const data = await res.json();
         document.querySelector('#chat-section .msg.system:last-child')?.remove();
         let r = '**'+url+'**\n\n'+data.summary;
@@ -449,11 +466,11 @@ async function submitLink() {
 }
 
 async function downloadMd(text, filename) {
-    const res = await fetch('/api/export-md', {
+    const res = await fetchWithTimeout('/api/export-md', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({content: text, filename: filename || 'export.md'})
-    });
+    }, 15000);
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -469,7 +486,7 @@ async function loadGraph() {
     const c = document.getElementById('graph-container');
     c.innerHTML = '<span class="spinner"></span> 加载中...';
     try {
-        const res = await fetch('/api/graph');
+        const res = await fetchWithTimeout('/api/graph', {}, 15000);
         const data = await res.json();
         const ns = data.nodes || [], ls = data.links || [];
         let h = '<div class="stat"><div class="stat-item"><div class="num">'+ns.length+'</div><div class="label">Nodes</div></div><div class="stat-item"><div class="num">'+ls.length+'</div><div class="label">Links</div></div></div>';

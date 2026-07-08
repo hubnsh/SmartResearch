@@ -217,6 +217,10 @@ QGroupBox::title {
 
 
 def main():
+    # 抑制 TensorFlow/oneDNN 等无关警告
+    os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
+    os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
+
     # PySide6/Qt6 默认已启用高 DPI 支持
     # 初始化桌面日志
     from desktop.logging_config import setup_logging
