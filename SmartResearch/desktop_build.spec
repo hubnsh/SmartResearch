@@ -15,16 +15,29 @@ PROJ_ROOT = Path('.').resolve()
 # ---- 版本号 ----
 VERSION = "1.0.0"
 
+# ---- 应用图标 ----
+icon_path = str(PROJ_ROOT / 'desktop' / 'icon.png')
+if not Path(icon_path).exists():
+    icon_path = None
+
 # ---- 数据文件 ----
 datas = [
     ('.env.example', '.'),
     ('requirements.txt', '.'),
 ]
 
-# static 目录（用于内嵌 WebView 可能需要的静态资源）
+# static 目录
 static_dir = PROJ_ROOT / 'static'
 if static_dir.exists():
     datas.append((str(static_dir), 'static'))
+
+# desktop 图标
+desktop_icon = PROJ_ROOT / 'desktop' / 'icon.png'
+if desktop_icon.exists():
+    datas.append((str(desktop_icon), 'desktop'))
+desktop_icon_64 = PROJ_ROOT / 'desktop' / 'icon_64.png'
+if desktop_icon_64.exists():
+    datas.append((str(desktop_icon_64), 'desktop'))
 
 # ---- 隐式导入（PyInstaller 无法自动发现的模块）----
 hiddenimports = [
@@ -48,9 +61,8 @@ hiddenimports = [
     'langchain_openai', 'langchain_chroma', 'langchain_text_splitters',
     'langchain_core', 'langchain_huggingface',
 
-    # ML / NLP
+    # ML / NLP（仅 TF-IDF，不含 sentence_transformers / torch）
     'sklearn.feature_extraction.text',
-    'sentence_transformers',
 
     # DB
     'chromadb', 'loguru',
@@ -60,13 +72,30 @@ hiddenimports = [
     'markdown',
 ]
 
-# ---- 排除不必要的包（减小体积）----
+# ---- 排除不必要的包（大幅减小 exe 体积）----
 excludes = [
-    'tkinter', 'matplotlib', 'pandas',
-    'jupyter', 'ipython', 'notebook',
-    'torchvision', 'torchaudio',  # 只保留 torch 基础
+    # GUI 框架
+    'tkinter', 'PyQt5', 'PyQt6',
+
+    # 数据科学（桌面版不需要）
+    'matplotlib', 'pandas', 'scipy', 'sympy',
+    'notebook', 'jupyter', 'ipython',
+
+    # 重型 ML 框架（桌面版用 TF-IDF 替代）
+    'tensorflow', 'tensorflow_hub', 'tensorflow_intel',
+    'torch', 'torchvision', 'torchaudio',
+    'sentence_transformers', 'transformers',
+    'keras', 'onnx', 'onnxruntime',
+    'tokenizers', 'accelerate',
+
+    # 测试和文档
     'tests', 'docs',
-    'numpy.testing', 'PIL.ImageShow',  # PIL 展示功能不需要
+    'numpy.testing', 'numpy.distutils',
+    'PIL.ImageShow', 'PIL.ImageGrab',
+
+    # 其他
+    'setuptools', 'pip', 'wheel',
+    'cffi', 'pycparser',
 ]
 
 a = Analysis(
@@ -108,11 +137,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,
+    icon=icon_path,
 )
-
-# 创建 ZIP 压缩包用于分发
-import os
-from PyInstaller.utils.win32 import winutils
-
-archive = os.path.join('dist', f'SmartResearch-Desktop-{VERSION}.zip')

@@ -49,6 +49,10 @@ class MainWindow(QMainWindow):
         self._setup_connections()
         self._update_ui_state()
 
+        # 启动后延迟检测配置状态（等事件循环启动后再弹窗）
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(500, self._check_first_run)
+
     # ══════════════════════════════════════════════════════════
     #  UI 搭建
     # ══════════════════════════════════════════════════════════
@@ -92,7 +96,7 @@ class MainWindow(QMainWindow):
         self.status_bar.addWidget(self.lbl_status, 1)
         self.status_bar.addPermanentWidget(self.progress_bar)
 
-        self.lbl_llm_status = QLabel("DeepSeek / Desktop")
+        self.lbl_llm_status = QLabel(self._get_llm_display_name())
         self.lbl_llm_status.setStyleSheet("color: #10b981; padding: 0 8px;")
         self.status_bar.addPermanentWidget(self.lbl_llm_status)
 
@@ -553,6 +557,61 @@ class MainWindow(QMainWindow):
         self._current_note = ""
 
     # ══════════════════════════════════════════════════════════
+    #  LLM 提供商显示
+    # ══════════════════════════════════════════════════════════
+
+    @staticmethod
+    def _get_llm_display_name() -> str:
+        """获取当前 LLM 提供商的显示名称"""
+        try:
+            from src.core.config import settings
+            names = {
+                "deepseek": "DeepSeek",
+                "openai": "OpenAI",
+                "claude": "Anthropic Claude",
+                "custom": "自定义 API",
+            }
+            provider = settings.LLM_PROVIDER
+            display = names.get(provider, provider)
+            return f"{display} / Desktop"
+        except Exception:
+            return "LLM / Desktop"
+
+    # ══════════════════════════════════════════════════════════
+    #  首次运行检测
+    # ══════════════════════════════════════════════════════════
+
+    def _check_first_run(self):
+        """检测首次运行状态，给出配置提示"""
+        from src.core.config import settings
+
+        # 检查 API Key
+        api_key = settings.llm_api_key
+        if not api_key:
+            self.lbl_status.setText("⚠️ 未配置 API Key — 请通过「编辑 → 设置」配置 LLM 提供商")
+            self.status_bar.showMessage(
+                "💡 首次使用？请先配置 API Key（编辑 → 设置），然后拖入图片或点击工具栏「链接」开始",
+                15000,
+            )
+        else:
+            provider_name = {
+                "deepseek": "DeepSeek",
+                "openai": "OpenAI",
+                "claude": "Anthropic Claude",
+                "custom": "自定义 API",
+            }.get(settings.LLM_PROVIDER, settings.LLM_PROVIDER)
+            self.lbl_status.setText(
+                f"✅ {provider_name} 已配置 — 拖入图片或点击「导入链接」开始使用"
+            )
+
+        # 检查本地 Embedding 提示（第一次启动需要下载模型）
+        if settings.USE_LOCAL_EMBEDDING:
+            self.status_bar.showMessage(
+                "ℹ️ 本地 Embedding 已启用，首次语义搜索需下载模型（约 5 分钟）",
+                10000,
+            )
+
+    # ══════════════════════════════════════════════════════════
     #  菜单操作
     # ══════════════════════════════════════════════════════════
     def _focus_search(self):
@@ -562,7 +621,12 @@ class MainWindow(QMainWindow):
 
     def _on_settings(self):
         dialog = SettingsDialog(self)
-        dialog.exec()
+        if dialog.exec() == SettingsDialog.Accepted:
+            # 刷新 LLM 状态显示
+            self.lbl_llm_status.setText(self._get_llm_display_name())
+            self.lbl_status.setText("✅ 设置已保存")
+            # 重新检查配置状态
+            self._check_first_run()
 
     def _on_about(self):
         dialog = AboutDialog(self)
