@@ -1,301 +1,151 @@
 # 🧠 SmartResearch —— 多模态智能学习与科研助手
 
 [![CI](https://github.com/hubnsh/SmartResearch/actions/workflows/ci.yml/badge.svg)](https://github.com/hubnsh/SmartResearch/actions/workflows/ci.yml)
+[![Build Desktop](https://github.com/hubnsh/SmartResearch/actions/workflows/build-desktop.yml/badge.svg)](https://github.com/hubnsh/SmartResearch/actions/workflows/build-desktop.yml)
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
-[![DeepSeek](https://img.shields.io/badge/LLM-DeepSeek-4B8BF5.svg)](https://www.deepseek.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ---
 
 ## 📖 项目简介
 
-**SmartResearch** 是一个面向科研工作者和技术人员的"第二大脑"（Second Brain）平台。它超越了传统的文件管理器思维，将各类知识来源——论文 PDF、技术文档、网页文章、视频教程、会议录音——自动解析、提炼为结构化的知识图谱，并提供基于大语言模型的智能问答。
+**SmartResearch** 是一个"第二大脑"（Second Brain）知识管理工具。它把散落在各处的知识——图片截图、网页文章、论文 PDF、视频教程——自动解析为结构化笔记，支持 AI 摘要和知识提取。
 
-### 解决什么问题？
+### 两种使用方式
 
-| 痛点 | SmartResearch 方案 |
-|------|-------------------|
-| 资料散落各处（PDF/网页/视频/笔记） | 统一入口，自动解析 5 类格式 + 3 类链接 |
-| 只记得内容不记得在哪个文件里 | 知识点级向量检索，用自然语言查找 |
-| 读完就忘，知识没有形成网络 | Neo4j 自动构建实体关系图谱 |
-| 论文/文档太长不想读 | LLM 自动生成摘要 + 提取核心概念 |
-| 多个工具来回切换 | Web 一站式界面 + CLI + API 三种交互 |
-
-### 核心理念
-
-`
-知识输入          知识加工              知识输出
-─────────       ─────────────        ──────────
-PDF/Word/PPT    Document Agent       智能摘要
-图片/截图       Vision Agent         关键词提取
-网页/论文链接    Web Agent           知识图谱
-B站/YouTube     Video Agent          RAG 问答
-音频/录音       Audio Agent          .md 导出
-     ↓               ↓                   ↓
- 多模态输入    →  AI Agent 处理    →  结构化知识
-`
+| 方式 | 适合谁 | 特点 |
+|------|--------|------|
+| 🖥️ **桌面版**（推荐） | 普通用户 | 像 CCswitch 一样下载即用，拖入图片/粘贴链接即可 |
+| 🌐 **Web 版** | 开发者 / 服务器部署 | 浏览器访问，支持文档上传 + RAG 问答 |
 
 ---
 
-## 🏗️ 系统架构
+## ✨ 功能一览
 
-`mermaid
-graph TB
-    subgraph "用户交互层"
-        WEB["🌐 Web UI<br/>no-JS + JS 增强版"]
-        CLI["💻 CLI<br/>命令行对话"]
-        API["🔌 REST API<br/>第三方集成"]
-    end
-
-    subgraph "API 网关层"
-        FASTAPI["FastAPI + Uvicorn<br/>路由 / CORS / 限流 / 静态文件"]
-    end
-
-    subgraph "Agent 调度层"
-        DISPATCHER["TaskDispatcher<br/>文件类型识别 → Agent 路由"]
-        REGISTRY["AgentRegistry<br/>5 个 Agent 动态注册"]
-    end
-
-    subgraph "Agent 执行层"
-        DOC["📄 DocumentAgent<br/>PDF/Word/PPT/TXT/MD"]
-        VISION["🖼️ OCRVisionAgent<br/>图片 OCR + Vision"]
-        WEB_AGENT["🌐 WebAgent<br/>网页/Arxiv/GitHub"]
-        VIDEO["🎬 VideoAgent<br/>B站/YouTube 字幕"]
-        AUDIO["🎵 AudioAgent<br/>MP3/WAV/M4A 语音"]
-    end
-
-    subgraph "核心服务层"
-        LLM["LLMService<br/>DeepSeek 对话 / 摘要 / 提取"]
-        KG["KGService<br/>Neo4j 知识图谱"]
-        RAG["RAGService<br/>ChromaDB 向量检索"]
-        EMBED["OfflineEmbeddings<br/>TF-IDF 零网络依赖"]
-    end
-
-    subgraph "数据存储层"
-        CHROMA[("🗄️ ChromaDB<br/>向量数据库")]
-        NEO4J[("🕸️ Neo4j<br/>图数据库")]
-        UPLOAD[("📁 Uploads<br/>原始文件")]
-        LOGS[("📝 Logs<br/>结构化日志")]
-    end
-
-    WEB --> FASTAPI
-    CLI --> DISPATCHER
-    API --> FASTAPI
-    FASTAPI --> DISPATCHER
-    DISPATCHER --> REGISTRY
-    REGISTRY --> DOC
-    REGISTRY --> VISION
-    REGISTRY --> WEB_AGENT
-    REGISTRY --> VIDEO
-    REGISTRY --> AUDIO
-    DOC --> LLM
-    DOC --> KG
-    DOC --> RAG
-    VISION --> LLM
-    VISION --> KG
-    VISION --> RAG
-    WEB_AGENT --> LLM
-    WEB_AGENT --> KG
-    WEB_AGENT --> RAG
-    RAG --> EMBED
-    RAG --> CHROMA
-    KG --> NEO4J
-    DOC --> UPLOAD
-`
-
----
-
-## 🔄 数据处理流程
-
-### RAG 对话流程
-
-`mermaid
-sequenceDiagram
-    participant U as 👤 用户
-    participant W as 🌐 Web UI
-    participant D as Dispatcher
-    participant R as RAGService
-    participant E as Embedding
-    participant C as ChromaDB
-    participant L as LLM (DeepSeek)
-    participant K as KGService (Neo4j)
-
-    U->>W: 输入问题 "什么是Transformer"
-    W->>D: POST /api/chat
-    D->>R: hybrid_search(query, k=4)
-    R->>E: embed_query(text)
-    E-->>R: TF-IDF 向量 [0.12, 0.45, ...]
-    R->>C: similarity_search(vector)
-    C-->>R: 4 个相关文档片段
-    D->>L: extract_knowledge(query)
-    L-->>D: 实体: [Transformer, Attention, ...]
-    D->>K: search_related("Transformer")
-    K-->>D: 图谱关系: Transformer → USES → Self-Attention
-    D->>L: chat(context + query)
-    L-->>D: Markdown 格式回答
-    D-->>W: ChatResponse(answer="...")
-    W->>U: 渲染 Markdown + 显示下载按钮
-`
-
-### 文件处理流程
-
-`mermaid
-sequenceDiagram
-    participant U as 👤 用户
-    participant W as 🌐 Web
-    participant D as Dispatcher
-    participant A as Agent
-    participant L as LLM
-    participant K as KG (Neo4j)
-    participant R as RAG (ChromaDB)
-
-    U->>W: 上传 paper.pdf
-    W->>D: handle_file(path)
-    D->>D: 识别扩展名 .pdf
-    D->>A: DocumentAgent.process(path)
-    A->>A: PyMuPDF 提取文本
-    A->>L: extract_knowledge(text[:10000])
-    L-->>A: {entities, relations, summary, keywords}
-    A->>K: upsert_knowledge(extraction)
-    K-->>A: 图谱节点 + 关系已创建
-    A->>R: add_documents([text], [metadata])
-    R-->>A: 向量索引已更新
-    A-->>D: {summary, keywords, entities, relations}
-    D-->>W: 处理结果 JSON
-    W->>U: 显示摘要 + 关键词 + 实体
-`
-
----
-
-## ✨ 核心功能详解
-
-### 📄 文档解析 (DocumentAgent)
-
-支持格式：**PDF、Word (.docx)、PPT (.pptx)、TXT、Markdown**
-
-| 格式 | 解析引擎 | 能力 |
-|------|----------|------|
-| PDF | PyMuPDF (fitz) | 文本提取、字体识别 |
-| Word | python-docx | 段落 + 表格 + 样式 |
-| PPT | python-pptx | 幻灯片文本 + 备注 |
-| TXT/MD | 原生读取 | UTF-8 自动检测 |
-
-处理链路：文件读取 → 文本清洗 → LLM 摘要 → 关键词提取 → 实体识别 → KG 写入 → RAG 入库
-
-### 🖼️ 图片理解 (OCRVisionAgent)
-
-支持格式：**JPG、PNG、JPEG、BMP、TIFF**
-
-`
-图片 → PaddleOCR 文字提取 → 识别结果 → LLM 语义分析 → 知识入库
-                ↓ (降级路径)
-         Tesseract OCR
-`
-
-### 🌐 网页抓取 (WebAgent)
-
-| URL 类型 | 识别模式 | 特殊处理 |
-|----------|----------|----------|
-| 通用网页 | https?:// | 正文提取（html2text） |
-| Arxiv 论文 | rxiv.org/abs/ | 元数据 API + PDF 摘要 |
-| GitHub 仓库 | github.com/*/* | README + 文件结构 |
-
-### 🎬 视频处理 (VideoAgent)
-
-`
-B站/YouTube URL → yt-dlp 字幕提取 → 时间轴分段 → LLM 生成知识树
-`
-
-输出结构化的章节摘要和关键概念时间戳映射。
-
-### 🎵 音频分析 (AudioAgent)
-
-支持格式：**MP3、WAV、M4A、OGG**
-
-`
-音频文件 → whisper 语音识别 → 文本分段 → LLM 提取要点 → 知识入库
-`
-
----
-
-## 💾 数据存储方案
-
-`
-SmartResearch/
-└── data/
-    ├── uploads/           ← 上传的原始文件
-    ├── chroma/            ← 向量数据库（SQLite）
-    ├── huggingface/       ← Embedding 模型缓存
-    ├── logs/              ← 运行日志（JSON，按天轮转）
-    └── tfidf_cache.pkl    ← TF-IDF 向量化缓存
-`
-
-| 数据 | 存储 | 位置 | 说明 |
-|------|------|------|------|
-| 向量索引 | ChromaDB (SQLite) | data/chroma/ | 本地文件，无需服务端 |
-| 知识图谱 | Neo4j | Docker olt://localhost:7687 | 未启动时优雅降级为空 |
-| 原始文件 | 文件系统 | data/uploads/ | UUID 重命名 |
-| 运行日志 | JSON 文件 | data/logs/ | Loguru 自动轮转 |
-| 向量化 | TF-IDF (sklearn) | 内存 + data/tfidf_cache.pkl | 零网络依赖 |
+| 功能 | 说明 | 桌面版 | Web 版 |
+|------|------|--------|--------|
+| 🖼️ **图片 OCR** | 拖入图片 → 自动识别文字 | ✅ | ✅ |
+| 🔗 **链接解析** | 粘贴链接 → 自动抓取网页内容 | ✅ | ✅ |
+| 🤖 **AI 摘要** | LLM 自动生成摘要 + 关键词 + 实体 | ✅ | ✅ |
+| 📝 **笔记生成** | 多个素材合成结构化 Markdown 笔记 | ✅ | ✅ |
+| 📄 **文档解析** | PDF / Word / PPT 内容提取 | ❌ | ✅ |
+| 🎬 **视频字幕** | B站 / YouTube 字幕提取 | ❌ | ✅ |
+| 🎵 **音频转写** | MP3 / WAV 语音转文字 | ❌ | ✅ |
+| 🔍 **RAG 问答** | 基于知识库的语义检索 | ❌ | ✅ |
+| 🕸️ **知识图谱** | Neo4j 实体关系可视化 | ❌ | ✅ |
 
 ---
 
 ## 🚀 快速开始
 
-### 环境要求
+### 方式一：桌面版（下载即用）
 
-| 依赖 | 版本 | 必需？ |
-|------|------|--------|
-| Python | 3.11+ | ✅ |
-| DeepSeek API Key | — | ✅ |
-| Docker | 最新版 | ❌ (仅 Neo4j 需要) |
-| Tesseract OCR | 5.x | ❌ (图片 OCR 需要) |
+从 [GitHub Releases](https://github.com/hubnsh/SmartResearch/releases) 下载 `SmartResearch-Desktop-*.zip`：
 
-### 一分钟启动
+```
+1. 解压 ZIP 文件
+2. 编辑 .env 文件，填入你的 API Key（见下方配置）
+3. 双击 SmartResearch.exe
+4. 拖入图片或点击「导入链接」→ 点击「生成笔记」
+```
 
-`ash
+> 也可以自己构建：`pip install pyinstaller && python build_exe.py desktop`
+
+### 方式二：Web 版（浏览器访问）
+
+```bash
 # 1. 克隆
 git clone https://github.com/hubnsh/SmartResearch.git
 cd SmartResearch
 
 # 2. 配置 API Key
 cp .env.example .env
-# 编辑 .env → 填入 DEEPSEEK_API_KEY
+# 编辑 .env → 填入你的 API Key
 
-# 3. 安装
+# 3. 安装依赖
 pip install -r requirements.txt
 
 # 4. 启动
 python run_server.py
-# 打开 http://localhost:8002
-`
 
-**Windows 用户**：直接双击 launcher.bat，自动完成以上步骤。
+# 5. 浏览器打开 http://localhost:8002/js
+```
 
 ---
 
-## 📖 使用指南
+## 🤖 LLM 提供商配置
 
-### Web 界面
+SmartResearch 支持 **4 种 LLM 提供商**，在桌面端「编辑 → 设置」中可随时切换：
+
+| 提供商 | API Key 格式 | 特点 | 注册地址 |
+|--------|-------------|------|---------|
+| **DeepSeek**（推荐） | `sk-...` | 中文强、¥1/百万 token | [platform.deepseek.com](https://platform.deepseek.com) |
+| **OpenAI** | `sk-...` | GPT-4o、生态完善 | [platform.openai.com](https://platform.openai.com) |
+| **Anthropic Claude** | `sk-ant-...` | 长上下文、推理强 | [console.anthropic.com](https://console.anthropic.com) |
+| **自定义** | 不限 | 任意 OpenAI 兼容 API | Groq / Together / vLLM / Ollama |
+
+桌面版配置方法：
+
+```
+编辑 → 设置 → LLM 提供商 [下拉选择]
+  ├── DeepSeek → 填入 sk-... + 选择模型
+  ├── OpenAI   → 填入 sk-... + 选择模型
+  ├── Claude   → 填入 sk-ant-... + 选择模型
+  └── 自定义   → 填入 Key + API 地址 + 模型名
+```
+
+---
+
+## 🖥️ 桌面版使用指南
+
+首次启动后，桌面的主要操作流程：
+
+```
+① 拖入图片  →  ② 导入链接  →  ③ 生成笔记  →  ④ 导出 .md
+  自动 OCR       自动抓取       AI 整理       保存文件
+```
+
+**界面布局：**
+
+```
+┌──────────────────────────────────────────────────┐
+│  [+ 导入图片] [+ 导入链接]  [保存] [打开]       │ ← 工具栏
+├────────────────────┬─────────────────────────────┤
+│  📦 素材列表       │  📝 笔记内容                │
+│                    │                             │
+│  🖼️  screenshot.png│  # 研究笔记 — 2026-07-08    │
+│  🔗  arxiv.org/... │                             │
+│  🔗  github.com/.. │  ## 1. 🔗 论文摘要          │
+│                    │  **摘要**: 本文提出...       │
+│                    │  **关键词**: NLP, Transformer│
+│                    │                             │
+│ 共 3 个素材        │  [生成笔记] [导出 .md]       │
+└────────────────────┴─────────────────────────────┘
+```
+
+---
+
+## 🌐 Web 版使用指南
+
+启动后访问以下路径：
 
 | 路径 | 说明 | 特点 |
 |------|------|------|
-| / | 首页（no-JS） | 纯 HTML 表单，兼容所有浏览器 |
-| /js | JS 增强版 | 侧边栏导航 + Markdown 实时渲染 + 动画 |
-| /graph | 知识图谱 | 实体-关系表格式浏览 |
-| /health | 健康检查 | JSON 状态 + 版本信息 |
-| /docs | Swagger 文档 | FastAPI 自动生成 |
+| `/` | 首页（no-JS） | 纯 HTML 表单，兼容所有浏览器 |
+| `/js` | JS 增强版 | 侧边栏导航 + Markdown 实时渲染 |
+| `/graph` | 知识图谱 | 实体-关系表格式浏览 |
+| `/health` | 健康检查 | JSON 状态 + 版本信息 |
+| `/docs` | API 文档 | Swagger 自动生成 |
 
-### API 端点
+**API 端点：**
 
-`ash
-# RAG 智能问答
+```bash
+# 智能问答
 curl -X POST http://localhost:8002/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"query": "什么是Transformer架构？"}'
+  -d '{"query": "什么是Transformer？"}'
 
-# 提交链接解析
+# 解析链接
 curl -X POST http://localhost:8002/api/link \
   -H "Content-Type: application/json" \
   -d '{"url": "https://arxiv.org/abs/1706.03762"}'
@@ -303,185 +153,118 @@ curl -X POST http://localhost:8002/api/link \
 # 上传文件
 curl -X POST http://localhost:8002/api/upload \
   -F "file=@paper.pdf"
-
-# 导出 Markdown
-curl -X POST http://localhost:8002/api/export-md \
-  -H "Content-Type: application/json" \
-  -d '{"content": "# 标题\n内容...", "filename": "export.md"}'
-`
-
-### CLI 模式
-
-`ash
-# 命令行对话
-python -m src.services.dispatcher chat "解释量子纠缠"
-
-# 列出已注册的 Agent
-python -m src.services.dispatcher agents
-`
+```
 
 ---
 
-## 🧪 测试
+## 📦 Windows 桌面版打包
 
-`ash
-# 运行全部测试
-python -m pytest tests/ -v
+### 从源码构建 exe
 
-# 快速结构测试（跳过 LLM 调用）
-python -m pytest tests/test_phase1.py -v
+```bash
+pip install pyinstaller
+python build_exe.py desktop
+# 输出: dist/SmartResearch-Desktop-v1.0.0.zip
+```
 
-# Agent 分发测试
-python -m pytest tests/test_phase2.py -v
-`
+### GitHub Actions 自动构建
 
-| 测试范围 | 文件 | 用例数 |
-|----------|------|--------|
-| API / 结构 / Config | 	est_phase1.py | 9 |
-| Agent / Dispatcher / Chat | 	est_phase2.py | 7 |
+打 `v*` tag 自动触发：
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+或在 GitHub → Actions → **Build Desktop** → **Run workflow** 手动触发。构建产物：
+- `SmartResearch-Desktop-*.zip`（含 exe + .env + README）
+- `SmartResearch.exe`（裸 exe）
 
 ---
 
 ## 📁 项目结构
 
-`
+```
 SmartResearch/
-├── src/
-│   ├── agents/                # 🧠 多模态 AI Agent
-│   │   ├── base.py            #    Agent 抽象基类 + 单例注册中心
-│   │   ├── document_agent.py  #    PDF/Word/PPT/TXT/MD 解析
-│   │   ├── vision_agent.py    #    图片 OCR + LLM Vision
-│   │   ├── web_agent.py       #    网页/Arxiv/GitHub 爬取
-│   │   ├── video_agent.py     #    B站/YouTube 字幕提取
-│   │   └── audio_agent.py     #    音频语音识别
+├── desktop/                    # 🖥️ 桌面版（PySide6 GUI）
+│   ├── window.py               # 主窗口
+│   ├── widgets.py              # 素材列表 + 笔记面板
+│   ├── workers.py              # 后台处理线程
+│   ├── dialogs.py              # 设置 / 关于 / 详情对话框
+│   ├── models.py               # 数据模型
+│   ├── project_manager.py      # 项目文件管理
+│   ├── logging_config.py       # 桌面版日志配置
+│   └── icon.ico / icon.png     # 应用图标
+├── src/                        # 🧠 核心逻辑
+│   ├── agents/                 # 多模态 AI Agent
+│   │   ├── base.py             # 抽象基类 + 注册中心
+│   │   ├── document_agent.py   # PDF/Word/PPT/TXT/MD
+│   │   ├── web_agent.py        # 网页/Arxiv/GitHub
+│   │   ├── vision_agent.py     # 图片 OCR + Vision
+│   │   ├── video_agent.py      # B站/YouTube 字幕
+│   │   └── audio_agent.py      # 音频语音识别
+│   ├── services/
+│   │   ├── llm_service.py      # 多提供商 LLM 封装
+│   │   ├── rag_service.py      # ChromaDB 向量检索
+│   │   ├── kg_service.py       # Neo4j 知识图谱
+│   │   ├── dispatcher.py       # Agent 路由调度
+│   │   └── offline_embeddings.py # TF-IDF 离线向量化
 │   ├── api/
-│   │   └── routes.py          # 🔌 FastAPI 路由（Chat/Upload/Link/Graph/Export）
+│   │   └── routes.py           # FastAPI 路由
 │   ├── core/
-│   │   ├── config.py          # ⚙️ Pydantic Settings（.env 配置管理）
-│   │   └── logging_config.py  # 📝 Loguru 结构化日志配置
-│   ├── models/                # 📦 数据模型（预留）
-│   └── services/
-│       ├── dispatcher.py      # 🎯 任务调度中心（Agent 发现 → 路由分发）
-│       ├── llm_service.py     # 🤖 DeepSeek LLM 封装（对话/摘要/提取）
-│       ├── rag_service.py     # 🔍 ChromaDB RAG 向量检索服务
-│       ├── kg_service.py      # 🕸️ Neo4j 知识图谱 CRUD 服务
-│       └── offline_embeddings.py # 📐 TF-IDF 离线向量化（零网络依赖）
-├── static/                    # 🎨 前端静态资源
-│   ├── index.html             #    独立版 JS 增强页面
-│   ├── nojs.html              #    纯 HTML 兼容页面
-│   ├── test.html              #    全功能测试页面
-│   └── marked.js              #    Markdown 渲染库
-├── tests/                     # 🧪 pytest 测试套件
-├── docs/                      # 📚 架构设计与需求文档
-├── data/                      # 💾 运行时数据（gitignore）
-├── launcher.bat               # 🚀 Windows 双击启动脚本
-├── build_exe.py               # 📦 PyInstaller 打包脚本
-├── SmartResearch.spec         # 📦 PyInstaller 配置文件
-├── run_server.py              # 🏁 主启动入口
-├── requirements.txt           # 📋 Python 依赖清单
-├── docker-compose.yml         # 🐳 Neo4j/ChromaDB 容器编排
-├── Dockerfile                 # 🐳 应用容器镜像
-└── .github/workflows/         # ⚡ CI/CD 流水线
-`
+│   │   ├── config.py           # .env 配置管理
+│   │   └── logging_config.py   # 日志配置
+│   └── main.py                 # FastAPI 应用入口
+├── static/                     # 🎨 前端静态文件
+│   ├── marked.js               # Markdown 渲染
+│   ├── test.html               # 测试页
+│   └── nojs.html               # 兼容页面
+├── tests/                      # 🧪 测试
+├── .github/workflows/          # ⚡ CI/CD
+│   ├── ci.yml                  # 自动化测试
+│   └── build-desktop.yml       # Windows exe 构建
+├── desktop_app.py              # 桌面版入口
+├── run_server.py               # Web 版入口
+├── build_exe.py                # 打包脚本
+├── desktop_build.spec          # 桌面版 PyInstaller 配置
+├── desktop_launcher.bat        # 桌面版启动器
+├── launcher.bat                # Web 版启动器
+├── diagnose.py                 # 环境诊断工具
+├── requirements.txt            # 依赖清单
+└── .env.example                # 配置模板
+```
 
 ---
 
-## 🛠️ 技术选型与设计决策
+## 🧪 测试
 
-### 为什么选这些技术？
+```bash
+# 运行全部测试
+cd SmartResearch && python -m pytest tests/ -v
 
-| 技术 | 理由 |
+# 快速结构测试
+python -m pytest tests/test_phase1.py -v
+
+# Agent 分发测试
+python -m pytest tests/test_phase2.py -v
+```
+
+---
+
+## 🎯 技术栈
+
+| 技术 | 用途 |
 |------|------|
-| **FastAPI** | 异步原生支持、自动 OpenAPI 文档、类型安全、高性能 |
-| **DeepSeek** | 中文能力强、API 兼容 OpenAI、成本低（¥1/百万 token） |
-| **LangChain** | LLM 调用抽象层，支持 Prompt 模板 + 输出解析器 |
-| **Neo4j** | 原生图数据库，Cypher 查询比 SQL JOIN 高效 100 倍 |
-| **ChromaDB** | 嵌入式向量库，零配置、SQLite 持久化、LangChain 原生集成 |
-| **TF-IDF** | 零网络依赖、启动即用、轻量级，作为离线 Embedding 降级方案 |
-| **AgentRegistry** | 单例注册模式，新 Agent 只需 2 行代码注册 |
-
-### 设计原则
-
-1. **懒加载** — 所有服务（LLM/KG/RAG）首次调用才初始化，启动 < 2 秒
-2. **优雅降级** — Neo4j 不可用时图谱返回空数组，不阻塞其他功能
-3. **零网络依赖 Embedding** — TF-IDF 模式下无需下载任何模型
-4. **纯 HTML 兼容** — 即使浏览器禁用 JS，/ 路由仍可正常对话
-5. **单例注册中心** — Agent 发现通过类级注册，避免硬编码
-
----
-
-## 🔧 扩展开发
-
-### 添加新 Agent（3 步）
-
-**1. 创建 src/agents/my_agent.py：**
-
-`python
-from src.agents.base import BaseAgent, agent_registry
-
-class MyAgent(BaseAgent):
-    AGENT_TYPE = "my_type"
-    SUPPORTED_EXTENSIONS = {".xyz"}
-
-    async def process(self, file_path: str):
-        self._ensure_services()
-        text = self._parse(file_path)
-        extraction = await self.llm.extract_knowledge(text[:10000])
-        self.kg.upsert_knowledge(extraction, {"source": file_path})
-        self.rag.add_documents([text], [{"source": file_path}])
-        return extraction
-
-    def _parse(self, path): ...
-
-agent_registry.register(MyAgent)
-`
-
-**2. 在 dispatcher.py 的 _load_agents() 中导入：**
-
-`python
-from src.agents.my_agent import MyAgent
-agent_registry.register(MyAgent)
-`
-
-**3. 重启服务** — Agent 自动被发现和路由。
-
-### 添加新 API 端点
-
-`python
-# src/api/routes.py
-class MyRequest(BaseModel):
-    text: str
-
-@router.post("/my-endpoint")
-async def my_handler(req: MyRequest):
-    result = await some_service.process(req.text)
-    return {"result": result}
-`
-
----
-
-## 📦 Windows 打包
-
-`ash
-pip install pyinstaller
-python build_exe.py
-# → dist/SmartResearch.exe
-`
-
-将 .exe 与 .env 放在同一目录即可运行，无需安装 Python。
-
----
-
-## 🐳 Docker 部署
-
-`ash
-# 基础设施（Neo4j + ChromaDB）
-docker-compose up -d
-
-# 应用镜像
-docker build -t smartresearch .
-docker run -p 8002:8002 --env-file .env smartresearch
-`
+| **Python 3.11+** | 运行时 |
+| **PySide6** | 桌面 GUI（类似 CCswitch 的原生体验） |
+| **FastAPI + Uvicorn** | Web 服务器 |
+| **LangChain** | LLM 调用抽象 |
+| **ChromaDB** | 向量数据库 |
+| **scikit-learn** | 离线 TF-IDF 向量化 |
+| **BeautifulSoup + httpx** | 网页抓取 |
+| **PyMuPDF / python-docx** | 文档解析 |
+| **PyInstaller** | Windows exe 打包 |
+| **DeepSeek / OpenAI / Claude** | 多 LLM 提供商支持 |
 
 ---
 
@@ -489,11 +272,12 @@ docker run -p 8002:8002 --env-file .env smartresearch
 
 | 症状 | 原因 | 解决 |
 |------|------|------|
-| 首次请求 30-60 秒 | 服务懒加载 + LLM API 冷启动 | 正常，后续请求 < 5 秒 |
-| 知识图谱为空 | Neo4j 未启动 | docker-compose up -d |
-| 向量检索无结果 | ChromaDB 未初始化或 Embedding 失败 | 检查 data/chroma/ 权限 |
-| 发送按钮无反应 | 服务器运行旧版代码 | 重启：Get-Process python \| Stop-Process -Force |
-| API Key 报错 | 未配置或余额不足 | 检查 .env 中 DEEPSEEK_API_KEY |
+| 桌面版启动后"未配置 API Key" | .env 未填写 | 编辑 → 设置 → 填入 API Key |
+| "请求超时" | 网络问题或 API 服务不稳定 | 检查网络连接，重试 |
+| "网站拒绝访问（403）" | 目标网站有反爬保护 | 已自动重试 + 切换 User-Agent |
+| 图片 OCR 失败 | Tesseract 未安装 | 安装 Tesseract OCR 5.x |
+| 本地 Embedding 下载慢 | 首次需下载模型 | 耐心等待，或关闭 USE_LOCAL_EMBEDDING |
+| Web 版首次请求 30-60 秒 | 服务懒加载 | 正常，后续请求 < 5 秒 |
 
 ---
 
