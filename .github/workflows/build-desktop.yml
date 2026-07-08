@@ -1,9 +1,6 @@
 # ============================================================
 # SmartResearch Desktop 构建流水线
 # 触发条件：创建 Git tag (v*) 或手动 dispatch
-#
-# 构建产物：SmartResearch.exe → 打包为 ZIP
-# 像 CCswitch 一样下载即用，无需安装 Python
 # ============================================================
 name: Build Desktop
 
@@ -11,6 +8,10 @@ on:
   push:
     tags:
       - 'v*'
+    paths-ignore:
+      - '**.md'
+      - '**.bat'
+      - 'docs/**'
   workflow_dispatch:
     inputs:
       version:
@@ -18,10 +19,16 @@ on:
         required: false
         default: ''
 
+# 取消正在运行的重复构建（节省 Actions 分钟数）
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-windows:
     name: Build Windows Desktop Exe
     runs-on: windows-latest
+    if: github.repository == 'hubnsh/SmartResearch'  # 仅在主仓库运行
 
     steps:
       - name: Checkout
@@ -33,33 +40,24 @@ jobs:
           python-version: "3.11"
           cache: 'pip'
 
-      - name: Cache pip dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~\AppData\Local\pip\Cache
-          key: ${{ runner.os }}-pip-${{ hashFiles('SmartResearch/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
       - name: Install dependencies
         shell: bash
         run: |
           pip install pyinstaller
-          # 只安装桌面版必需的依赖（避免 torch/tensorflow 等重型包）
           pip install PySide6>=6.5.0 httpx beautifulsoup4 markdown loguru Pillow \
             scikit-learn numpy \
             langchain-openai langchain-chroma langchain-text-splitters langchain-core \
             chromadb pydantic pydantic-settings python-dotenv aiofiles
 
       - name: Create .env from template
-        run: |
-          copy SmartResearch\.env.example SmartResearch\.env
+        run: copy SmartResearch\.env.example SmartResearch\.env
 
       - name: Build Desktop EXE with PyInstaller
         shell: bash
         run: |
           cd SmartResearch
           python -m PyInstaller desktop_build.spec --noconfirm --clean
+        timeout-minutes: 30
 
       - name: Determine version
         id: version
@@ -82,7 +80,6 @@ jobs:
             echo "status=success" >> $GITHUB_OUTPUT
           else
             echo "status=failed" >> $GITHUB_OUTPUT
-            echo "::warning::SmartResearch.exe not found"
           fi
 
       - name: Create ZIP archive
@@ -97,9 +94,8 @@ jobs:
           cp ../README.md SmartResearch-Desktop/
           7z a "SmartResearch-Desktop-${VERSION}.zip" SmartResearch-Desktop/
           rm -rf SmartResearch-Desktop
-          echo "ZIP created: SmartResearch-Desktop-${VERSION}.zip"
 
-      - name: Upload ZIP artifact
+      - name: Upload ZIP
         if: steps.verify.outputs.status == 'success'
         uses: actions/upload-artifact@v4
         with:
@@ -107,7 +103,7 @@ jobs:
           path: SmartResearch/dist/SmartResearch-Desktop-*.zip
           retention-days: 90
 
-      - name: Upload EXE artifact
+      - name: Upload EXE
         if: steps.verify.outputs.status == 'success'
         uses: actions/upload-artifact@v4
         with:
@@ -128,14 +124,8 @@ jobs:
 
             ### 🚀 使用方法
             1. 下载 ZIP 并解压
-            2. 编辑 `.env` 文件，填入你的 API Key
-            3. 双击 `SmartResearch.exe` 启动
-
-            ### ✨ 功能
-            - 🖼️ 拖入图片 → 自动 OCR 文字识别
-            - 🔗 导入链接 → 自动抓取网页内容
-            - 🤖 支持 DeepSeek / OpenAI / Claude / 自定义 LLM
-            - 📥 AI 生成结构化 Markdown 笔记
+            2. 编辑 `.env` 填入 API Key
+            3. 双击 `SmartResearch.exe`
           files: |
             SmartResearch/dist/SmartResearch.exe
           fail_on_unmatched_files: false
