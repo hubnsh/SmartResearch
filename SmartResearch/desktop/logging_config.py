@@ -1,14 +1,23 @@
 """
-桌面版日志配置 — 输出到控制台 + 文件
+桌面版日志配置 — 输出到控制台 + 文件（带自动轮转）
 """
 import logging
 import os
 import sys
 from datetime import datetime
+from logging.handlers import RotatingFileHandler
 
 
-def setup_logging(log_dir: str = "data/logs", level: int = logging.INFO):
-    """配置桌面应用的日志系统"""
+def setup_logging(log_dir: str = "data/logs", level: int = logging.INFO,
+                  max_bytes: int = 10 * 1024 * 1024, backup_count: int = 5):
+    """配置桌面应用的日志系统（带轮转）
+
+    Args:
+        log_dir: 日志文件目录
+        level: 日志级别
+        max_bytes: 单个日志文件最大字节数（默认 10MB）
+        backup_count: 保留的备份文件数
+    """
     os.makedirs(log_dir, exist_ok=True)
 
     # 日志文件名按日期
@@ -28,8 +37,10 @@ def setup_logging(log_dir: str = "data/logs", level: int = logging.INFO):
         datefmt="%H:%M:%S",
     )
 
-    # 文件 handler
-    file_handler = logging.FileHandler(log_file, encoding="utf-8")
+    # 文件 handler（带轮转：10MB，保留 5 个备份）
+    file_handler = RotatingFileHandler(
+        log_file, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8",
+    )
     file_handler.setLevel(level)
     file_handler.setFormatter(formatter)
     root_logger.addHandler(file_handler)
@@ -44,5 +55,5 @@ def setup_logging(log_dir: str = "data/logs", level: int = logging.INFO):
     logging.getLogger("desktop").setLevel(logging.DEBUG)
     logging.getLogger("src").setLevel(logging.WARNING)
 
-    logging.info(f"日志已初始化: {log_file}")
+    logging.info(f"日志已初始化: {log_file} (轮转: {max_bytes//1024//1024}MB x {backup_count})")
     return log_file

@@ -12,12 +12,14 @@ logger = logging.getLogger(__name__)
 
 def _build_embeddings():
     """构建 Embedding 实例：尝试 OpenAI → 本地 HuggingFace → TF-IDF 离线降级"""
-    # 方式 A：OpenAI 兼容 API（含 DeepSeek 兼容端点）
-    if settings.OPENAI_API_KEY:
+    # 方式 A：OpenAI 兼容 API（优先使用独立配置的 Embedding Key）
+    emb_key = settings.EMBEDDING_API_KEY or settings.llm_api_key
+    emb_base = settings.EMBEDDING_API_BASE
+    if emb_key:
         logger.info("使用 OpenAI 兼容 Embedding: %s", settings.EMBEDDING_MODEL)
         return OpenAIEmbeddings(
-            api_key=settings.OPENAI_API_KEY,
-            base_url=settings.OPENAI_API_BASE,
+            api_key=emb_key,
+            base_url=emb_base,
             model=settings.EMBEDDING_MODEL,
         )
 

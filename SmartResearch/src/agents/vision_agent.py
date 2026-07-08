@@ -137,3 +137,8 @@ class OCRVisionAgent(BaseAgent):
             f"【OCR 文字识别结果】\n{ocr}\n\n"
             f"【视觉语义理解】\n{vision}"
         )
+
+
+# 自动注册
+from src.agents.base import agent_registry
+agent_registry.register(OCRVisionAgent)

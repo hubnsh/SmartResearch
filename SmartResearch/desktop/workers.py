@@ -126,9 +126,8 @@ class ImageProcessingWorker(QThread):
     async def _process_image(self) -> Optional[Dict[str, Any]]:
         from src.agents.vision_agent import OCRVisionAgent
         from src.agents.base import agent_registry
-        from src.agents.vision_agent import OCRVisionAgent as VA
 
-        agent_registry.register(VA)
+        agent_registry.register(OCRVisionAgent)
         agent = OCRVisionAgent()
         self.progress.emit(self.item.id, "正在 OCR 识别...")
         result = await agent.process(self.item.data)
@@ -166,9 +165,8 @@ class LinkProcessingWorker(QThread):
     async def _process_link(self) -> Optional[Dict[str, Any]]:
         from src.agents.web_agent import WebAgent
         from src.agents.base import agent_registry
-        from src.agents.web_agent import WebAgent as WA
 
-        agent_registry.register(WA)
+        agent_registry.register(WebAgent)
         agent = WebAgent()
         self.progress.emit(self.item.id, "正在抓取网页内容...")
         result = await agent.process(self.item.data)

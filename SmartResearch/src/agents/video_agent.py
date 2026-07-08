@@ -206,8 +206,6 @@ class VideoAgent(BaseAgent):
         if not _YTDLP_AVAILABLE:
             return "（yt-dlp 未安装，无法获取字幕）"
         try:
-            # yt-dlp 支持 B站 字幕提取
-            import yt_dlp
             url = f"https://www.bilibili.com/video/{bvid}"
             opts = {
                 "quiet": True, "no_warnings": True, "skip_download": True,
@@ -240,3 +238,8 @@ class VideoAgent(BaseAgent):
             f"【简介】{meta.get('desc', '无')[:2000]}\n\n"
             f"【字幕/文案】\n{transcript[:6000]}"
         )
+
+
+# 自动注册
+from src.agents.base import agent_registry
+agent_registry.register(VideoAgent)

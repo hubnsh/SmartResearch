@@ -7,7 +7,7 @@ import fitz  # PyMuPDF
 from docx import Document as DocxDocument
 from pptx import Presentation
 import markdown as md_lib
-from src.agents.base import BaseAgent, agent_registry
+from src.agents.base import BaseAgent
 from src.services.llm_service import LLMService
 from src.services.kg_service import KGService
 from src.services.rag_service import RAGService
@@ -92,3 +92,6 @@ class DocumentAgent(BaseAgent):
             return f.read().strip()
 
 
+# 自动注册
+from src.agents.base import agent_registry
+agent_registry.register(DocumentAgent)

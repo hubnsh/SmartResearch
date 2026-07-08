@@ -220,42 +220,55 @@ def list_build_types():
 
 
 def main():
-    print()
-    print("  ╔════════════════════════════════════════╗")
-    print("  ║      SmartResearch 构建工具 v1.0      ║")
-    print("  ║      将 Python 项目打包为 Windows exe ║")
-    print("  ╚════════════════════════════════════════╝")
-    print()
+    ci_mode = len(sys.argv) > 1 and sys.argv[1].lower() in ("desktop", "web")
+
+    if not ci_mode:
+        print()
+        print("  ╔════════════════════════════════════════╗")
+        print("  ║      SmartResearch 构建工具 v1.0      ║")
+        print("  ║      将 Python 项目打包为 Windows exe ║")
+        print("  ╚════════════════════════════════════════╝")
+        print()
 
     # 检查环境
     cwd = Path.cwd()
-    print(f"  工作目录: {cwd}")
-    print()
-
-    print("  [检查环境]")
-    check_env()
-    print()
+    if not ci_mode:
+        print(f"  工作目录: {cwd}")
+        print()
+        print("  [检查环境]")
+        check_env()
+        print()
 
     if not check_pyinstaller():
-        print()
-        print("  PyInstaller 是必需的打包工具。")
-        resp = input("  是否现在安装 PyInstaller? (Y/n): ").strip().lower()
-        if resp in ("", "y", "yes"):
+        if ci_mode:
             install_pyinstaller()
         else:
-            print("  已取消。手动安装: pip install pyinstaller")
-            return
+            print()
+            print("  PyInstaller 是必需的打包工具。")
+            resp = input("  是否现在安装 PyInstaller? (Y/n): ").strip().lower()
+            if resp in ("", "y", "yes"):
+                install_pyinstaller()
+            else:
+                print("  已取消。手动安装: pip install pyinstaller")
+                return
 
     if not check_requirements():
-        print()
-        resp = input("  是否现在安装所有依赖? (y/N): ").strip().lower()
-        if resp in ("y", "yes"):
+        if ci_mode:
+            print("  [CI] 自动安装依赖...")
             subprocess.check_call(
                 [sys.executable, "-m", "pip", "install", "-r", "requirements.txt"],
             )
             print("  [OK] 依赖安装完成")
         else:
-            print("  [!!] 缺少依赖可能导致打包失败")
+            print()
+            resp = input("  是否现在安装所有依赖? (y/N): ").strip().lower()
+            if resp in ("y", "yes"):
+                subprocess.check_call(
+                    [sys.executable, "-m", "pip", "install", "-r", "requirements.txt"],
+                )
+                print("  [OK] 依赖安装完成")
+            else:
+                print("  [!!] 缺少依赖可能导致打包失败")
 
     # 确定构建类型
     build_type = None

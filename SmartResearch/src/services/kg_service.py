@@ -64,8 +64,10 @@ class KGService:
     @staticmethod
     def _upsert_relation(tx, relation: Dict[str, Any]):
         rel_type = relation["type"].replace(" ", "_").upper()
+        # 使用 label 约束避免全表扫描；如节点不存在则先创建
         query = (
-            "MATCH (a {name: $source}), (b {name: $target}) "
+            "MERGE (a:Entity {name: $source}) "
+            "MERGE (b:Entity {name: $target}) "
             f"MERGE (a)-[r:{rel_type}]->(b) "
             "SET r.updated_at = timestamp() "
             "RETURN r"

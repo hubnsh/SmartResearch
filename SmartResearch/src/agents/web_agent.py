@@ -341,3 +341,8 @@ class WebAgent(BaseAgent):
 
         # 截断太长
         return text[:50000], title
+
+
+# 自动注册
+from src.agents.base import agent_registry
+agent_registry.register(WebAgent)

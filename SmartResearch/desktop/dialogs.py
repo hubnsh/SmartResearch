@@ -254,82 +254,111 @@ class SettingsDialog(QDialog):
             self.accept()
 
     def _write_env(self, provider: str):
-        """将当前设置写入 .env 文件"""
+        """将当前设置写入 .env 文件（保留无关的已有配置）"""
         import os as _os
         env_path = _os.path.join(
             _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))),
             ".env",
         )
 
-        # 读取现有 .env
-        existing = {}
+        # 读取现有 .env（保留所有行，包括注释和无关配置）
+        existing_lines = []
+        existing_vars = {}
         if _os.path.exists(env_path):
             with open(env_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if "=" in line and not line.startswith("#"):
-                        k, v = line.split("=", 1)
-                        existing[k.strip()] = v.strip()
+                existing_lines = f.readlines()
+            for line in existing_lines:
+                stripped = line.strip()
+                if "=" in stripped and not stripped.startswith("#"):
+                    k, v = stripped.split("=", 1)
+                    existing_vars[k.strip()] = v.strip()
 
-        # 更新 LLM 配置
-        existing["LLM_PROVIDER"] = provider
+        # 只更新我们管理的配置项，保留其他所有行
+        managed_keys = {
+            "LLM_PROVIDER", "DEEPSEEK_API_KEY", "DEEPSEEK_BASE_URL", "DEEPSEEK_MODEL",
+            "OPENAI_API_KEY", "OPENAI_API_BASE", "OPENAI_MODEL",
+            "ANTHROPIC_API_KEY", "ANTHROPIC_MODEL",
+            "CUSTOM_API_KEY", "CUSTOM_API_BASE", "CUSTOM_MODEL",
+            "USE_LOCAL_EMBEDDING", "EMBEDDING_API_KEY", "EMBEDDING_API_BASE", "EMBEDDING_MODEL",
+        }
+
+        # 构建新的配置值
+        new_values = {"LLM_PROVIDER": provider}
         api_key = self.edit_api_key.text().strip()
 
         if provider == "deepseek":
-            existing["DEEPSEEK_API_KEY"] = api_key
-            existing["DEEPSEEK_BASE_URL"] = self.edit_base_url.text().strip() or "https://api.deepseek.com"
-            existing["DEEPSEEK_MODEL"] = self.edit_model.text().strip() or "deepseek-chat"
+            new_values["DEEPSEEK_API_KEY"] = api_key
+            new_values["DEEPSEEK_BASE_URL"] = self.edit_base_url.text().strip() or "https://api.deepseek.com"
+            new_values["DEEPSEEK_MODEL"] = self.edit_model.text().strip() or "deepseek-chat"
         elif provider == "openai":
-            existing["OPENAI_API_KEY"] = api_key
-            existing["OPENAI_API_BASE"] = self.edit_base_url.text().strip() or "https://api.openai.com/v1"
-            existing["OPENAI_MODEL"] = self.edit_model.text().strip() or "gpt-4o"
+            new_values["OPENAI_API_KEY"] = api_key
+            new_values["OPENAI_API_BASE"] = self.edit_base_url.text().strip() or "https://api.openai.com/v1"
+            new_values["OPENAI_MODEL"] = self.edit_model.text().strip() or "gpt-4o"
         elif provider == "claude":
-            existing["ANTHROPIC_API_KEY"] = api_key
-            existing["ANTHROPIC_MODEL"] = self.edit_model.text().strip() or "claude-sonnet-4-20250514"
+            new_values["ANTHROPIC_API_KEY"] = api_key
+            new_values["ANTHROPIC_MODEL"] = self.edit_model.text().strip() or "claude-sonnet-4-20250514"
         elif provider == "custom":
-            existing["CUSTOM_API_KEY"] = api_key
-            existing["CUSTOM_API_BASE"] = self.edit_base_url.text().strip() or "https://api.openai.com/v1"
-            existing["CUSTOM_MODEL"] = self.edit_model.text().strip() or "gpt-4o-mini"
+            new_values["CUSTOM_API_KEY"] = api_key
+            new_values["CUSTOM_API_BASE"] = self.edit_base_url.text().strip() or "https://api.openai.com/v1"
+            new_values["CUSTOM_MODEL"] = self.edit_model.text().strip() or "gpt-4o-mini"
 
-        # Embedding
-        existing["USE_LOCAL_EMBEDDING"] = str(self.chk_local_emb.isChecked())
+        new_values["USE_LOCAL_EMBEDDING"] = str(self.chk_local_emb.isChecked())
         emb_key = self.edit_emb_key.text().strip()
         if emb_key:
-            existing["EMBEDDING_API_KEY"] = emb_key
-        existing["EMBEDDING_API_BASE"] = self.edit_emb_base.text().strip() or "https://api.openai.com/v1"
-        existing["EMBEDDING_MODEL"] = self.edit_emb_model.text().strip() or "text-embedding-3-small"
+            new_values["EMBEDDING_API_KEY"] = emb_key
+        new_values["EMBEDDING_API_BASE"] = self.edit_emb_base.text().strip() or "https://api.openai.com/v1"
+        new_values["EMBEDDING_MODEL"] = self.edit_emb_model.text().strip() or "text-embedding-3-small"
 
-        # 写入文件
+        # 合并：保留所有已有行，但更新 managed_keys 的值
+        updated_vars = {**existing_vars, **new_values}
+        written_keys = set()
+
         with open(env_path, "w", encoding="utf-8") as f:
             f.write("# ========== SmartResearch Desktop 配置 ==========\n")
-            f.write(f"# 最后修改: LLM_PROVIDER={provider}\n")
-            f.write(f"LLM_PROVIDER={provider}\n\n")
+            f.write(f"# 最后修改: LLM_PROVIDER={provider}\n\n")
 
-            if provider == "deepseek":
-                f.write("# ---- DeepSeek ----\n")
-                f.write(f"DEEPSEEK_API_KEY={existing.get('DEEPSEEK_API_KEY', '')}\n")
-                f.write(f"DEEPSEEK_BASE_URL={existing.get('DEEPSEEK_BASE_URL', 'https://api.deepseek.com')}\n")
-                f.write(f"DEEPSEEK_MODEL={existing.get('DEEPSEEK_MODEL', 'deepseek-chat')}\n")
-            elif provider == "openai":
-                f.write("# ---- OpenAI ----\n")
-                f.write(f"OPENAI_API_KEY={existing.get('OPENAI_API_KEY', '')}\n")
-                f.write(f"OPENAI_API_BASE={existing.get('OPENAI_API_BASE', 'https://api.openai.com/v1')}\n")
-                f.write(f"OPENAI_MODEL={existing.get('OPENAI_MODEL', 'gpt-4o')}\n")
-            elif provider == "claude":
-                f.write("# ---- Anthropic Claude ----\n")
-                f.write(f"ANTHROPIC_API_KEY={existing.get('ANTHROPIC_API_KEY', '')}\n")
-                f.write(f"ANTHROPIC_MODEL={existing.get('ANTHROPIC_MODEL', 'claude-sonnet-4-20250514')}\n")
-            elif provider == "custom":
-                f.write("# ---- 自定义 OpenAI 兼容 ----\n")
-                f.write(f"CUSTOM_API_KEY={existing.get('CUSTOM_API_KEY', '')}\n")
-                f.write(f"CUSTOM_API_BASE={existing.get('CUSTOM_API_BASE', 'https://api.openai.com/v1')}\n")
-                f.write(f"CUSTOM_MODEL={existing.get('CUSTOM_MODEL', 'gpt-4o-mini')}\n")
+            # 先写入 managed 配置（保持整洁有序）
+            f.write("# ===== LLM 提供商 =====\n")
+            f.write(f"LLM_PROVIDER={updated_vars['LLM_PROVIDER']}\n")
+            written_keys.add("LLM_PROVIDER")
+
+            f.write("\n")
+
+            ordered_keys = {
+                "deepseek": ["DEEPSEEK_API_KEY", "DEEPSEEK_BASE_URL", "DEEPSEEK_MODEL"],
+                "openai": ["OPENAI_API_KEY", "OPENAI_API_BASE", "OPENAI_MODEL"],
+                "claude": ["ANTHROPIC_API_KEY", "ANTHROPIC_MODEL"],
+                "custom": ["CUSTOM_API_KEY", "CUSTOM_API_BASE", "CUSTOM_MODEL"],
+            }
+            section_headers = {
+                "deepseek": "# ---- DeepSeek ----\n",
+                "openai": "# ---- OpenAI ----\n",
+                "claude": "# ---- Anthropic Claude ----\n",
+                "custom": "# ---- 自定义 OpenAI 兼容 ----\n",
+            }
+
+            f.write(section_headers.get(provider, "# ---- LLM 配置 ----\n"))
+            for key in ordered_keys.get(provider, []):
+                f.write(f"{key}={updated_vars.get(key, '')}\n")
+                written_keys.add(key)
 
             f.write("\n# ---- Embedding ----\n")
-            f.write(f"USE_LOCAL_EMBEDDING={existing.get('USE_LOCAL_EMBEDDING', 'False')}\n")
-            f.write(f"EMBEDDING_API_KEY={existing.get('EMBEDDING_API_KEY', '')}\n")
-            f.write(f"EMBEDDING_API_BASE={existing.get('EMBEDDING_API_BASE', 'https://api.openai.com/v1')}\n")
-            f.write(f"EMBEDDING_MODEL={existing.get('EMBEDDING_MODEL', 'text-embedding-3-small')}\n")
+            for key in ["USE_LOCAL_EMBEDDING", "EMBEDDING_API_KEY", "EMBEDDING_API_BASE", "EMBEDDING_MODEL"]:
+                f.write(f"{key}={updated_vars.get(key, '')}\n")
+                written_keys.add(key)
+
+            # 写入所有未被 managed 的原始配置行（如 NEO4J、REDIS、APP_ENV 等）
+            f.write("\n# ===== 其他配置（自动保留）=====\n")
+            for line in existing_lines:
+                stripped = line.strip()
+                if not stripped or stripped.startswith("#"):
+                    continue  # 跳过注释（我们的注释在上面已写）
+                if "=" not in stripped:
+                    continue
+                k = stripped.split("=", 1)[0].strip()
+                if k not in written_keys:
+                    f.write(f"{k}={updated_vars.get(k, existing_vars.get(k, ''))}\n")
+                    written_keys.add(k)
 
 
 class AboutDialog(QDialog):

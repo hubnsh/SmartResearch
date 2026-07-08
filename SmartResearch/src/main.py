@@ -59,20 +59,27 @@ app.add_middleware(
 )
 
 # ---------- 简易速率限制（内存，每 IP 每分钟 30 次） ----------
-_rate_limits = {}
+# 定期清理过期条目，避免内存无限增长
+_rate_limits: dict = {}
+_RATE_LIMIT_WINDOW = 60  # 窗口期（秒）
+_RATE_LIMIT_MAX = 30     # 窗口期内最大请求数
 
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
     from time import time
     client = request.client.host if request.client else "unknown"
     now = time()
-    window = now - 60
+    window = now - _RATE_LIMIT_WINDOW
     _rate_limits.setdefault(client, [])
     _rate_limits[client] = [t for t in _rate_limits[client] if t > window]
-    if len(_rate_limits[client]) >= 30:
+    if len(_rate_limits[client]) >= _RATE_LIMIT_MAX:
         from fastapi.responses import JSONResponse
         return JSONResponse({"detail": "Too many requests"}, status_code=429)
     _rate_limits[client].append(now)
+    # 每 100 次请求清理一次过期条目，防止内存泄漏
+    if len(_rate_limits) > 1000:
+        cutoff = now - 300  # 清理 5 分钟前的 IP
+        _rate_limits.clear()
     return await call_next(request)
 
 # 挂载静态文件（目录不存在则自动创建）
