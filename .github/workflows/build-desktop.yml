@@ -32,10 +32,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: 'pip'
@@ -97,7 +97,7 @@ jobs:
 
       - name: Upload ZIP
         if: steps.verify.outputs.status == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: SmartResearch-Desktop-${{ steps.version.outputs.version }}
           path: SmartResearch/dist/SmartResearch-Desktop-*.zip
@@ -105,7 +105,7 @@ jobs:
 
       - name: Upload EXE
         if: steps.verify.outputs.status == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: SmartResearch-EXE-${{ steps.version.outputs.version }}
           path: SmartResearch/dist/SmartResearch.exe

@@ -59,7 +59,7 @@ langchain-huggingface==0.1.2
 sentence-transformers==3.3.1
 
 # ML / NLP (离线 TF-IDF Embedding)
-scikit-learn>=1.3.0
+scikit-learn>=1.3.0,<1.7.0
 numpy>=2.0.0
 
 # Anthropic Claude 支持（可选，默认使用 DeepSeek）
