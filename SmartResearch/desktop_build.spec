@@ -15,10 +15,13 @@ PROJ_ROOT = Path('.').resolve()
 # ---- 版本号 ----
 VERSION = "1.0.0"
 
-# ---- 应用图标 ----
-icon_path = str(PROJ_ROOT / 'desktop' / 'icon.png')
+# ---- 应用图标（Windows 需要 .ico 格式）----
+icon_path = str(PROJ_ROOT / 'desktop' / 'icon.ico')
 if not Path(icon_path).exists():
-    icon_path = None
+    # 降级：没有 .ico 则尝试 .png（需要 PIL 自动转换）
+    icon_path = str(PROJ_ROOT / 'desktop' / 'icon.png')
+    if not Path(icon_path).exists():
+        icon_path = None
 
 # ---- 数据文件 ----
 datas = [
@@ -59,17 +62,17 @@ hiddenimports = [
 
     # LangChain
     'langchain_openai', 'langchain_chroma', 'langchain_text_splitters',
-    'langchain_core', 'langchain_huggingface',
+    'langchain_core',
 
-    # ML / NLP（仅 TF-IDF，不含 sentence_transformers / torch）
+    # ML / NLP（仅 TF-IDF，不含 torch / sentence_transformers）
     'sklearn.feature_extraction.text',
 
     # DB
     'chromadb', 'loguru',
     'pydantic', 'pydantic_settings',
 
-    # Document parsing
-    'markdown',
+    # Document parsing + icon
+    'markdown', 'PIL', 'PIL._tkinter_finder',
 ]
 
 # ---- 排除不必要的包（大幅减小 exe 体积）----

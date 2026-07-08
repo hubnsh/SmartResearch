@@ -42,9 +42,14 @@ jobs:
             ${{ runner.os }}-pip-
 
       - name: Install dependencies
+        shell: bash
         run: |
-          pip install -r SmartResearch/requirements.txt
           pip install pyinstaller
+          # 只安装桌面版必需的依赖（避免 torch/tensorflow 等重型包）
+          pip install PySide6>=6.5.0 httpx beautifulsoup4 markdown loguru Pillow \
+            scikit-learn numpy \
+            langchain-openai langchain-chroma langchain-text-splitters langchain-core \
+            chromadb pydantic pydantic-settings python-dotenv aiofiles
 
       - name: Create .env from template
         run: |
