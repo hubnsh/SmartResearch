@@ -222,6 +222,13 @@ def main():
     from desktop.logging_config import setup_logging
     setup_logging()
 
+    # 加载自定义 Agent
+    try:
+        from custom_agents import load_custom_agents
+        load_custom_agents()
+    except Exception:
+        pass
+
     app = QApplication(sys.argv)
     app.setApplicationName("SmartResearch")
     app.setOrganizationName("SmartResearch")

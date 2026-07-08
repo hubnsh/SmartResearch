@@ -236,6 +236,51 @@ SmartResearch/
 
 ---
 
+## 🔧 扩展：自定义 Agent
+
+你可以添加自己的 Agent 来实现任意功能——文本翻译、代码分析、数据可视化等。
+
+### 三步创建一个自定义 Agent
+
+**① 创建文件**
+
+在 `custom_agents/` 目录下新建 `.py` 文件：
+
+```python
+from src.agents.base import BaseAgent, agent_registry
+
+class MyAgent(BaseAgent):
+    AGENT_TYPE = "my_agent"                # 唯一标识
+    SUPPORTED_EXTENSIONS = {".csv", ".json"}  # 匹配文件类型
+
+    async def process(self, input_data: str) -> dict:
+        self._ensure_services()            # 获取 LLM/KG/RAG
+        # 你的处理逻辑...
+        return {"summary": "结果", "keywords": [], "entities": []}
+
+agent_registry.register(MyAgent)  # 注册！
+```
+
+**② 重启应用**
+
+Agent 会自动加载，可以在日志中看到：
+```
+[CustomAgent] 已加载: my_agent.py
+```
+
+**③ 使用**
+
+- **上传文件** → Agent 根据扩展名自动匹配
+- **提交链接** → Agent 的 `handles_url()` 方法判断是否匹配
+
+### 参考示例
+
+查看 [custom_agents/example_agent.py](custom_agents/example_agent.py) 获取完整示例，包括：
+- 文件匹配型 Agent（按扩展名自动触发）
+- URL 匹配型 Agent（按链接模式自动触发）
+
+---
+
 ## 🧪 测试
 
 ```bash

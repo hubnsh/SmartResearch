@@ -38,3 +38,10 @@ Thumbs.db
 # Temp files
 *_orig.py
 server*.log
+
+# Custom Agents（用户自定义 Agent，保留 example_agent.py）
+# 你自己的 Agent 文件放在 SmartResearch/custom_agents/ 下
+# 不会被 Git 跟踪（不会提交到仓库）
+SmartResearch/custom_agents/*.py
+!SmartResearch/custom_agents/__init__.py
+!SmartResearch/custom_agents/example_agent.py

@@ -11,6 +11,13 @@ import uvicorn
 from src.main import app
 from loguru import logger
 
+# 加载自定义 Agent
+try:
+    from custom_agents import load_custom_agents
+    load_custom_agents()
+except Exception:
+    pass
+
 # 后台预热（不阻塞启动）
 def warmup():
     try:
